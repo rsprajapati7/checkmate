@@ -46,18 +46,18 @@ backend/
 │   │
 │   └── middleware.py          # CORS, logging, error handlers
 │
-├── ela_forgery/               # Error Level Analysis (ELA) & Image Forgery Detection Engine
-│   ├── ela.py                 # Core ELA algorithm
-│   ├── ghost.py               # GHOST algorithm for compression analysis
-│   ├── docdetect.py           # Document alignment/bounding box checks
-│   ├── visualize.py           # Heatmap and difference visualization
-│   ├── analyze.py             # Main entry point for forgery evaluation
-│   ├── dashboard.py           # Local ELA demo dashboard
-│   ├── cli.py                 # Command line runner for local testing
-│   └── README.md              # ELA engine specific documentation
-│
-├── pipelines/                 # The other 3 forensic analysis engines
+├── pipelines/                 # The 4 forensic analysis engines
 │   ├── __init__.py
+│   │
+│   ├── ela_forgery/           # Error Level Analysis (ELA) & Image Forgery Detection Engine
+│   │   ├── ela.py             # Core ELA algorithm
+│   │   ├── ghost.py           # GHOST algorithm for compression analysis
+│   │   ├── docdetect.py       # Document alignment/bounding box checks
+│   │   ├── visualize.py       # Heatmap and difference visualization
+│   │   ├── analyze.py         # Main entry point for forgery evaluation
+│   │   ├── dashboard.py       # Local ELA demo dashboard
+│   │   ├── cli.py             # Command line runner for local testing
+│   │   └── README.md          # ELA engine specific documentation
 │   │
 │   ├── metadata_forensics/    # Forensic State Machine
 │   │   ├── __init__.py
