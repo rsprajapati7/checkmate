@@ -1,0 +1,6 @@
+{
+  "models": {
+    "yolov8": {"version": "2", "path": "models/yolov8/seal_detector.pt"},
+    "llm": {"provider": "google|ollama", "model": "gemma-4-cloud|gemma2"}
+  }
+}

@@ -1,0 +1,1 @@
+def fingerprint_image(img_path: str) -> str: return ''

@@ -1,0 +1,5 @@
+[tool.poetry]
+name = "checkmate-backend"
+version = "0.1.0"
+description = "FastAPI analysis service"
+authors = ["Neeraj"]

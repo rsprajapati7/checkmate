@@ -1,0 +1,2 @@
+class CheckmateException(Exception):
+    pass

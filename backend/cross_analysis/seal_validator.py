@@ -1,0 +1,1 @@
+class SealValidator: pass

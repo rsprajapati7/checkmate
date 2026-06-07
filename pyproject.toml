@@ -1,0 +1,4 @@
+[tool.poetry]
+name = "checkmate-workspace"
+version = "0.1.0"
+description = "Checkmate Workspace"

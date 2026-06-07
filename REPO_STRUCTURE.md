@@ -73,9 +73,9 @@ backend/
 │   │   ├── scorer.py          # Seal anomalies → score
 │   │   └── config.py          # YOLOv8 model path, confidence threshold
 │   │
-│   └── nlp_cross_doc/         # FinBERT Entity Extraction + Consistency
+│   └── nlp_cross_doc/         # LLM-based Entity Extraction + Consistency
 │       ├── __init__.py
-│       ├── entity_extractor.py  # NER: PAN, GST, Revenue, Dates, Names
+│       ├── entity_extractor.py  # NER: PAN, GST, Revenue, Dates, Names (via LLM)
 │       ├── consistency_graph.py  # Build entity graph across documents
 │       ├── accounting_rules.py   # Assets = Liabilities + Equity, etc
 │       └── scorer.py            # Contradictions → anomaly score
@@ -154,16 +154,13 @@ models/
 ├── gemma/                     # [DELETED / OPTIONAL] Local Gemma weights
 │                              # (Not needed if using Gemma 4 Cloud or local Ollama)
 │
-├── finbert/                   # Financial BERT (for cross-doc NER)
-│   ├── model.pt               # Or HuggingFace model ID (finbert-task-...)
-│   └── config.json
+├── finbert/                   # [DELETED] (Cross-doc NER utilizes same LLM client, no local weights required)
 │
 └── registry.json              # Model manifest
     # {
     #   "models": {
     #     "yolov8": {"version": "2", "path": "models/yolov8/seal_detector.pt", "sha256": "..."},
-    #     "llm": {"provider": "google|ollama", "model": "gemma-4-cloud|gemma2"},
-    #     "finbert": {"version": "latest", "huggingface_id": "..."}
+    #     "llm": {"provider": "google|ollama", "model": "gemma-4-cloud|gemma2"}
     #   }
     # }
 ```
@@ -393,8 +390,6 @@ LLM_TEMPERATURE=0.3
 
 YOLO_MODEL_PATH=models/yolov8/seal_detector.pt
 YOLO_CONFIDENCE_THRESHOLD=0.5
-
-FINBERT_MODEL_ID=ProsusAI/finbert  # or local path
 
 # File Upload
 UPLOAD_MAX_SIZE=50  # MB

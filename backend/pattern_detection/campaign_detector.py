@@ -1,0 +1,1 @@
+class CampaignDetector: pass

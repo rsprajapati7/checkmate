@@ -1,0 +1,1 @@
+def test_throughput(): pass

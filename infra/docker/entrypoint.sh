@@ -1,0 +1,1 @@
+#!/bin/sh\nexec uvicorn backend.main:app
