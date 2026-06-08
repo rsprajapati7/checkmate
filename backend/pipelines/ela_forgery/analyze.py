@@ -28,7 +28,7 @@ def _block_means(error_map, block_size=32, doc_mask=None, text_mask=None):
 
     Masks out background pixels and text edges to isolate uniform regions.
     """
-    h, w = error_map.shape
+    h, w = error_map.shape[:2]
     bh = h // block_size
     bw = w // block_size
 
@@ -125,7 +125,7 @@ def _local_contrast_score(grid):
     if grid is None or grid.size < 9:
         return 0.0
 
-    bh, bw = grid.shape
+    bh, bw = grid.shape[:2]
     local_anomalies = []
 
     for r in range(1, bh - 1):
@@ -203,7 +203,7 @@ def _noise_inconsistency_score(image_path, doc_mask=None, text_mask=None, block_
     # Estimate noise using Laplacian (high-pass filter)
     laplacian = cv2.Laplacian(img, cv2.CV_64F)
 
-    h, w = laplacian.shape
+    h, w = laplacian.shape[:2]
     bh, bw = h // block_size, w // block_size
 
     if bh < 3 or bw < 3:
@@ -285,7 +285,7 @@ def _grid_mismatch_score(image_path, doc_mask=None):
         return 0.0
 
     img_f = img.astype(np.float64)
-    h, w = img_f.shape
+    h, w = img_f.shape[:2]
 
     if h < 16 or w < 16:
         return 0.0

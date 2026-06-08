@@ -29,3 +29,12 @@ backend/uploads/
 # Environment
 .env
 *.local
+
+# Local DB & Temp Files
+checkmate.db
+tmp/
+*.jpeg
+*.jpg
+*.png
+!backend/**/*.png
+

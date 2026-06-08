@@ -1,4 +1,62 @@
 [tool.poetry]
 name = "checkmate-workspace"
-version = "0.1.0"
-description = "Checkmate Workspace"
+version = "2.0.0"
+description = "CheckMate / Suraksha 2.0 — AI-powered document forgery detection"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# FastAPI & server
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+python-multipart = "^0.0.9"
+
+# Database (async SQLAlchemy + SQLite dev / PostgreSQL prod)
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.29"}
+aiosqlite = "^0.20.0"
+asyncpg = "^0.29.0"           # for PostgreSQL in prod
+alembic = "^1.13.1"
+
+# Settings
+pydantic-settings = "^2.2.1"
+
+# Document parsing
+pymupdf = "^1.24.3"           # PDF → images, native text, metadata
+pillow = "^10.3.0"
+pytesseract = "^0.3.10"
+
+# Image processing / ELA
+opencv-python = "^4.9.0.80"
+numpy = "^1.26.4"
+
+# QR code decoding
+pyzbar = "^0.1.9"
+
+# LLM (Gemma 4 via Google AI Studio — new SDK)
+google-genai = "^0.7.0"
+
+# HTTP client (Ollama fallback)
+httpx = "^0.27.0"
+
+# Seal detection
+ultralytics = "^8.2.0"
+
+# Report generation
+jinja2 = "^3.1.4"
+weasyprint = "^62.3"          # HTML → PDF (optional; falls back to HTML)
+
+# Utilities
+python-jose = "^3.3.0"
+passlib = "^1.7.4"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

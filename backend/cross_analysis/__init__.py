@@ -1,1 +1,1 @@
-# Cross analysis package
+"""Cross analysis package."""

@@ -1,1 +1,1 @@
-# Report generation package
+"""Report generation package."""

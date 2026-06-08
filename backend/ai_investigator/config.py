@@ -1,3 +1,5 @@
-# LLM Settings
-LLM_PROVIDER = "ollama"
-LLM_MODEL = "gemma2"
+"""AI Investigator config."""
+from backend.core.config import settings
+
+LLM_PROVIDER = settings.LLM_PROVIDER
+LLM_MODEL = settings.LLM_MODEL

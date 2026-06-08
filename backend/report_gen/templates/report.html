@@ -1,1 +1,173 @@
-<html><body><h1>CheckMate Analysis Report</h1></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CheckMate Forensic Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; }
+  .header { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); color: white; padding: 28px 36px; }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+  .header .subtitle { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  .header .meta { margin-top: 16px; font-size: 12px; opacity: 0.85; }
+  .header .meta span { margin-right: 24px; }
+  .tier-badge { display: inline-block; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 18px; margin-top: 12px; }
+  .tier-GREEN { background: #1a7a4a; color: white; }
+  .tier-AMBER { background: #b45309; color: white; }
+  .tier-RED   { background: #991b1b; color: white; }
+  .content { padding: 24px 36px; }
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #0f3460; border-bottom: 2px solid #0f3460; padding-bottom: 6px; margin-bottom: 14px; }
+  .score-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .score-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; background: #f9fafb; }
+  .score-card .label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; }
+  .score-card .value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+  .bar-bg { height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 8px; }
+  .bar { height: 6px; border-radius: 3px; }
+  .bar-low { background: #10b981; }
+  .bar-medium { background: #f59e0b; }
+  .bar-high { background: #ef4444; }
+  .final-score { text-align: center; padding: 24px; background: #f0f4f8; border-radius: 10px; }
+  .final-score .big-num { font-size: 52px; font-weight: 800; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0f3460; color: white; padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  .flag-item { margin-bottom: 6px; padding: 6px 10px; border-radius: 4px; font-size: 11.5px; }
+  .flag-red   { background: #fef2f2; border-left: 3px solid #ef4444; }
+  .flag-amber { background: #fffbeb; border-left: 3px solid #f59e0b; }
+  .heatmap { text-align: center; margin-top: 12px; }
+  .heatmap img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .investigation-box { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 16px; font-size: 12.5px; line-height: 1.7; }
+  .footer { background: #f0f4f8; padding: 16px 36px; font-size: 11px; color: #9ca3af; text-align: center; }
+  .no-flags { color: #10b981; font-size: 12px; font-style: italic; }
+  .color-green { color: #10b981; }
+  .color-amber { color: #f59e0b; }
+  .color-red   { color: #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CheckMate Forensic Report</h1>
+  <div class="subtitle">Suraksha 2.0 — Automated Document Forensics Platform</div>
+  <div class="meta">
+    <span><strong>Document:</strong> {{ filename }}</span>
+    <span><strong>Job ID:</strong> {{ job_id }}</span>
+    <span><strong>Generated:</strong> {{ generated_at }}</span>
+    <span><strong>Type:</strong> {{ doc_type }}</span>
+  </div>
+  <div class="tier-badge tier-{{ risk_tier }}">{{ risk_tier }} — {{ tier_label }}</div>
+</div>
+
+<div class="content">
+
+  <div class="section">
+    <h2>Risk Score Summary</h2>
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
+      <div class="final-score">
+        <div class="big-num {% if risk_tier == 'GREEN' %}color-green{% elif risk_tier == 'AMBER' %}color-amber{% else %}color-red{% endif %}">
+          {{ final_score_pct }}
+        </div>
+        <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">Risk Score / 100</div>
+        <div style="margin-top: 8px; font-size: 11px; color: #9ca3af;">GREEN &lt;30 · AMBER 30–60 · RED &ge;60</div>
+      </div>
+      <div class="score-grid">
+        <div class="score-card">
+          <div class="label">ELA Analysis</div>
+          <div style="font-size: 10px; color: #9ca3af;">Pixel tampering &amp; compression</div>
+          <div class="value {% if ela_score < 30 %}color-green{% elif ela_score < 60 %}color-amber{% else %}color-red{% endif %}">{{ ela_score }}</div>
+          <div class="bar-bg"><div class="bar {% if ela_score < 30 %}bar-low{% elif ela_score < 60 %}bar-medium{% else %}bar-high{% endif %}" style="width: {{ ela_score }}%"></div></div>
+        </div>
+        <div class="score-card">
+          <div class="label">Metadata Forensics</div>
+          <div style="font-size: 10px; color: #9ca3af;">Date, producer, XMP checks</div>
+          <div class="value {% if metadata_score < 30 %}color-green{% elif metadata_score < 60 %}color-amber{% else %}color-red{% endif %}">{{ metadata_score }}</div>
+          <div class="bar-bg"><div class="bar {% if metadata_score < 30 %}bar-low{% elif metadata_score < 60 %}bar-medium{% else %}bar-high{% endif %}" style="width: {{ metadata_score }}%"></div></div>
+        </div>
+        <div class="score-card">
+          <div class="label">Seal Detection</div>
+          <div style="font-size: 10px; color: #9ca3af;">Stamp authenticity</div>
+          <div class="value {% if seal_score < 30 %}color-green{% elif seal_score < 60 %}color-amber{% else %}color-red{% endif %}">{{ seal_score }}</div>
+          <div class="bar-bg"><div class="bar {% if seal_score < 30 %}bar-low{% elif seal_score < 60 %}bar-medium{% else %}bar-high{% endif %}" style="width: {{ seal_score }}%"></div></div>
+        </div>
+        <div class="score-card">
+          <div class="label">NLP Cross-Doc</div>
+          <div style="font-size: 10px; color: #9ca3af;">Entity &amp; figure consistency</div>
+          <div class="value {% if nlp_score < 30 %}color-green{% elif nlp_score < 60 %}color-amber{% else %}color-red{% endif %}">{{ nlp_score }}</div>
+          <div class="bar-bg"><div class="bar {% if nlp_score < 30 %}bar-low{% elif nlp_score < 60 %}bar-medium{% else %}bar-high{% endif %}" style="width: {{ nlp_score }}%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if extracted_fields %}
+  <div class="section">
+    <h2>Extracted Document Fields</h2>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for key, value in extracted_fields.items() %}{% if value %}
+        <tr><td style="font-weight:600; width:200px;">{{ key }}</td><td>{{ value }}</td></tr>
+        {% endif %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="section">
+    <h2>Detected Anomalies</h2>
+    {% if all_flags %}
+      {% for flag in all_flags %}
+      <div class="flag-item {% if 'mismatch' in flag or 'pasted' in flag or 'inconsist' in flag or 'invalid' in flag or 'fake' in flag %}flag-red{% else %}flag-amber{% endif %}">
+        {{ flag }}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="no-flags">No significant anomalies detected.</div>
+    {% endif %}
+  </div>
+
+  {% if ela_heatmap_b64 %}
+  <div class="section">
+    <h2>ELA Heatmap — Pixel Tampering Map</h2>
+    <div class="heatmap">
+      <img src="data:image/png;base64,{{ ela_heatmap_b64 }}" alt="ELA Heatmap">
+      <div style="font-size: 11px; color: #9ca3af; margin-top: 6px;">Brighter regions indicate higher compression error — potential tampering zones.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if registry_details %}
+  <div class="section">
+    <h2>Registry Verification</h2>
+    <table>
+      <thead><tr><th>Document Type</th><th>Status</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>{{ registry_details.get('doc_type', 'Document') }}</td>
+          <td style="font-weight:700;" class="{% if registry_details.get('match') %}color-green{% else %}color-red{% endif %}">
+            {{ 'VERIFIED' if registry_details.get('match') else 'NOT VERIFIED' }}
+          </td>
+          <td>{{ registry_details.get('message', '') }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if llm_investigation %}
+  <div class="section">
+    <h2>AI Investigation Summary (Gemma 4 31B)</h2>
+    <div class="investigation-box">{{ llm_investigation }}</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="footer">
+  Generated by CheckMate / Suraksha 2.0 &middot; Powered by Gemma 4 31B &middot;
+  This report is for forensic assistance only and does not constitute legal opinion.
+</div>
+</body>
+</html>

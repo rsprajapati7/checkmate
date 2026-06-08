@@ -2,16 +2,25 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system dependencies including Tesseract and ZBar (for QR decoding)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
-    libimage-exiftool-perl \
+    libzbar0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+# Install python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ .
+# Copy source code, models, and configuration
+COPY backend/ ./backend/
+COPY models/ ./models/
+COPY .env.example ./.env
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Set python path to the app directory
+ENV PYTHONPATH=/app
+
+# Start the FastAPI web application
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
