@@ -31,12 +31,12 @@ class SealResult:
     flags: List[str] = field(default_factory=list)
 
 
-async def run_seal_pipeline(image_paths: List[str]) -> SealResult:
+async def run_seal_pipeline(image_paths: List[str], is_scanned: bool = True) -> SealResult:
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _run_sync, image_paths)
+    return await loop.run_in_executor(None, _run_sync, image_paths, is_scanned)
 
 
-def _run_sync(image_paths: List[str]) -> SealResult:
+def _run_sync(image_paths: List[str], is_scanned: bool = True) -> SealResult:
     model = _load_yolo_model()
     total_seals = 0
     suspicious = 0
@@ -46,7 +46,7 @@ def _run_sync(image_paths: List[str]) -> SealResult:
         if not os.path.exists(img_path):
             continue
         try:
-            seal_regions = _detect_seals(img_path, model)
+            seal_regions = _detect_seals(img_path, model, is_scanned=is_scanned)
             total_seals += len(seal_regions)
 
             for idx, (x1, y1, x2, y2) in enumerate(seal_regions):
@@ -64,18 +64,16 @@ def _run_sync(image_paths: List[str]) -> SealResult:
                 is_suspicious = False
                 reason_parts = []
 
-                # Pasted digital seal: unnaturally crisp edges COMBINED with ELA anomaly.
-                # Authentic stamps on scanned docs can have high sharpness (ink/paper contrast)
-                # so sharpness alone is not enough — we require ELA confirmation.
-                if lap_var > 1200 and ela_score > 4.0:
-                    is_suspicious = True
-                    reason_parts.append(f"sharpness={lap_var:.0f}")
-                    reason_parts.append(f"ELA={ela_score:.1f}")
-
-                # High ELA anomaly alone is also sufficient (e.g. cut-and-paste with low sharpness)
-                elif ela_score > 6.0:
-                    is_suspicious = True
-                    reason_parts.append(f"ELA={ela_score:.1f}")
+                # For native digital PDFs, high sharpness and ELA are expected.
+                # Only scanned docs should be flagged as suspicious.
+                if is_scanned:
+                    if lap_var > 1200 and ela_score > 4.0:
+                        is_suspicious = True
+                        reason_parts.append(f"sharpness={lap_var:.0f}")
+                        reason_parts.append(f"ELA={ela_score:.1f}")
+                    elif ela_score > 6.0:
+                        is_suspicious = True
+                        reason_parts.append(f"ELA={ela_score:.1f}")
 
                 if is_suspicious:
                     suspicious += 1
@@ -111,9 +109,9 @@ def _load_yolo_model():
         return None
 
 
-def _detect_seals(img_path: str, model) -> List[tuple]:
+def _detect_seals(img_path: str, model, is_scanned: bool = True) -> List[tuple]:
     if model is None:
-        return _heuristic_seal_detection(img_path)
+        return _heuristic_seal_detection(img_path, is_scanned=is_scanned)
     try:
         results = model(img_path, conf=settings.YOLO_CONFIDENCE_THRESHOLD, verbose=False)
         boxes = []
@@ -124,10 +122,10 @@ def _detect_seals(img_path: str, model) -> List[tuple]:
         return boxes
     except Exception as e:
         logger.warning(f"[Seal] YOLO inference failed: {e}")
-        return _heuristic_seal_detection(img_path)
+        return _heuristic_seal_detection(img_path, is_scanned=is_scanned)
 
 
-def _heuristic_seal_detection(img_path: str) -> List[tuple]:
+def _heuristic_seal_detection(img_path: str, is_scanned: bool = True) -> List[tuple]:
     img = cv2.imread(img_path)
     if img is None:
         return []

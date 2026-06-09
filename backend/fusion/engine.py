@@ -41,11 +41,20 @@ def fuse_scores(
     metadata_score: float,
     seal_score: float,
     nlp_score: float,
+    is_scanned: bool = True,
 ) -> FusionResult:
     """
     Compute weighted average of pipeline scores and classify into risk tier.
 
     All input scores are 0-100. Output final_score is 0-1.
+
+    When is_scanned=False (native digital PDF), a document-type-aware weight
+    profile is applied that downweights ELA and Seal (which have higher
+    false-positive rates on digital documents) and upweights Metadata
+    (which remains fully reliable regardless of document type).
+
+    Scanned document weights:  ELA=0.35, Meta=0.25, Seal=0.25, NLP=0.15
+    Digital document weights:  ELA=0.20, Meta=0.45, Seal=0.15, NLP=0.20
     """
     # Normalize to 0-1
     ela_n = ela_score / 100.0
@@ -53,12 +62,23 @@ def fuse_scores(
     seal_n = seal_score / 100.0
     nlp_n = nlp_score / 100.0
 
+    if is_scanned:
+        w_ela = WEIGHT_ELA
+        w_meta = WEIGHT_METADATA
+        w_seal = WEIGHT_SEAL
+        w_nlp = WEIGHT_NLP
+    else:
+        w_ela = 0.20
+        w_meta = 0.45
+        w_seal = 0.15
+        w_nlp = 0.20
+
     # Weighted fusion
     final = (
-        WEIGHT_ELA * ela_n +
-        WEIGHT_METADATA * meta_n +
-        WEIGHT_SEAL * seal_n +
-        WEIGHT_NLP * nlp_n
+        w_ela * ela_n +
+        w_meta * meta_n +
+        w_seal * seal_n +
+        w_nlp * nlp_n
     )
     final = round(min(1.0, max(0.0, final)), 4)
 
@@ -67,7 +87,7 @@ def fuse_scores(
 
     logger.info(
         f"[Fusion] ELA={ela_score:.1f} Meta={metadata_score:.1f} "
-        f"Seal={seal_score:.1f} NLP={nlp_score:.1f} -> "
+        f"Seal={seal_score:.1f} NLP={nlp_score:.1f} is_scanned={is_scanned} -> "
         f"Final={final:.3f} ({tier.value})"
     )
 

@@ -38,20 +38,25 @@ class ELAResult:
     per_page_scores: List[float] = field(default_factory=list)
 
 
-async def run_ela_pipeline(image_paths: List[str]) -> ELAResult:
+async def run_ela_pipeline(
+    image_paths: List[str],
+    multiscale: bool = True,
+    mask: bool = True,
+    is_scanned: bool = True,
+) -> ELAResult:
     """
     Run ELA on a list of document page images (PNG paths).
     Returns an ELAResult aggregating all pages.
     """
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _run_ela_sync, image_paths)
+    return await loop.run_in_executor(None, _run_ela_sync, image_paths, multiscale, mask, is_scanned)
 
 
-def _run_ela_sync(image_paths: List[str]) -> ELAResult:
+def _run_ela_sync(image_paths: List[str], multiscale: bool = True, mask: bool = True, is_scanned: bool = True) -> ELAResult:
     """Synchronous ELA execution — runs in a thread pool from the async caller."""
     try:
         # Import from ela_forgery using the patched sys.path
-        from ela import compute_ela_multiscale                      # noqa: E402
+        from ela import compute_ela_multiscale, compute_ela          # noqa: E402
         from docdetect import detect_document_region, generate_text_mask, classify_document_type  # noqa: E402
         from analyze import risk_score, find_anomalous_regions, classify_risk  # noqa: E402
         from visualize import generate_ela_heatmap                  # noqa: E402
@@ -72,13 +77,21 @@ def _run_ela_sync(image_paths: List[str]) -> ELAResult:
             continue
 
         try:
-            # Compute multi-scale ELA error map
-            error_map = compute_ela_multiscale(img_path)
+            # Compute ELA error map (multi-scale optional)
+            if multiscale:
+                error_map = compute_ela_multiscale(img_path)
+            else:
+                error_map = compute_ela(img_path)
 
-            # Document-aware masks
-            doc_mask = detect_document_region(img_path)
-            text_mask = generate_text_mask(img_path, doc_mask)
-            doc_type = classify_document_type(img_path, doc_mask)
+            # Document-aware masks (optional)
+            if mask:
+                doc_mask = detect_document_region(img_path)
+                text_mask = generate_text_mask(img_path, doc_mask)
+                doc_type = classify_document_type(img_path, doc_mask)
+            else:
+                doc_mask = None
+                text_mask = None
+                doc_type = 'PHOTO'
 
             # Risk score (0-100)
             score = risk_score(
@@ -88,6 +101,7 @@ def _run_ela_sync(image_paths: List[str]) -> ELAResult:
                 text_mask=text_mask,
                 doc_type=doc_type,
                 image_path=img_path,
+                is_scanned=is_scanned,
             )
 
             # Anomalous region count

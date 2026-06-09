@@ -91,9 +91,9 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
         logger.info(f"[Worker:{job_id}] Step 2 — Parallel pipeline analysis")
 
         ela_result, meta_result, seal_result = await asyncio.gather(
-            run_ela_pipeline(image_paths),
+            run_ela_pipeline(image_paths, is_scanned=ingestion.is_scanned),
             run_metadata_pipeline(ingestion),
-            run_seal_pipeline(image_paths),
+            run_seal_pipeline(image_paths, is_scanned=ingestion.is_scanned),
         )
         ela_result: ELAResult
         meta_result: MetadataResult
@@ -217,6 +217,7 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
             metadata_score=meta_result.score,
             seal_score=seal_result.score,
             nlp_score=max(nlp_result.score, registry_penalty),
+            is_scanned=ingestion.is_scanned,
         )
 
         # ------------------------------------------------------------------ #

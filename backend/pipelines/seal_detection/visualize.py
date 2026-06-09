@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: str) -> bool:
+def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: str, is_scanned: bool = True) -> bool:
     """
     Generate a visual dashboard for detected seal regions with summary metrics at the top.
     
@@ -78,8 +78,11 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             ela_norm = np.zeros_like(gray, dtype=np.uint8)
         ela_color = cv2.applyColorMap(ela_norm, cv2.COLORMAP_JET)
         
-        # Check if suspicious: requires high sharpness + ELA combined, or very high ELA alone
-        is_susp = (lap_var > 1200 and ela_mean.mean() > 4.0) or (ela_mean.mean() > 6.0)
+        # Check if suspicious: requires high sharpness + ELA combined, or very high ELA alone.
+        # For native digital PDFs (is_scanned=False), never flag as suspicious.
+        is_susp = is_scanned and (
+            (lap_var > 1200 and ela_mean.mean() > 4.0) or (ela_mean.mean() > 6.0)
+        )
         if is_susp:
             suspicious_count += 1
             
@@ -149,7 +152,7 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             return panel
             
         p1 = create_panel(m["crop"], f"Seal #{m['idx']+1} Original")
-        p2 = create_panel(m["lap_color"], f"Edges (Var: {m['lap_var']:.0f})", is_alert=(m["lap_var"] > 800))
+        p2 = create_panel(m["lap_color"], f"Edges (Var: {m['lap_var']:.0f})", is_alert=(is_scanned and m["lap_var"] > 1200))
         p3 = create_panel(m["ela_color"], f"ELA (Mean: {m['ela_mean']:.1f})", is_alert=(m["ela_mean"] > 4.0))
         
         # Combine row side-by-side with 10px spacing

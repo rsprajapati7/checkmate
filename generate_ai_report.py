@@ -18,7 +18,7 @@ from backend.ai_investigator.llm_client import llm_client
 from backend.fusion.engine import fuse_scores
 from backend.fusion.risk_tier import tier_label
 
-async def generate_report(file_path: str, output_md: str):
+async def generate_report(file_path: str, output_md: str, multiscale: bool = True, mask: bool = True):
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' not found.")
         sys.exit(1)
@@ -33,14 +33,14 @@ async def generate_report(file_path: str, output_md: str):
     image_paths = [p.image_path for p in ingestion.pages]
     
     print("2. Running ELA Forgery Pipeline...")
-    ela_res = await run_ela_pipeline(image_paths)
+    ela_res = await run_ela_pipeline(image_paths, multiscale=multiscale, mask=mask, is_scanned=ingestion.is_scanned)
     
     ela_dashboards = []
     for idx, img_path in enumerate(image_paths):
         page_num = idx + 1
         dash_path = f"tmp/ela_dashboard_page{page_num}.png"
         try:
-            build_dashboard(img_path, dash_path)
+            build_dashboard(img_path, dash_path, use_multiscale=multiscale, is_scanned=ingestion.is_scanned)
             ela_dashboards.append((page_num, dash_path))
             print(f"Generated ELA dashboard for page {page_num} at: {dash_path}")
         except Exception as e:
@@ -50,7 +50,7 @@ async def generate_report(file_path: str, output_md: str):
     meta_res = await run_metadata_pipeline(ingestion)
     
     print("4. Running Seal Detection Pipeline...")
-    seal_res = await run_seal_pipeline(image_paths)
+    seal_res = await run_seal_pipeline(image_paths, is_scanned=ingestion.is_scanned)
     
     seal_dashboards = []
     try:
@@ -58,9 +58,9 @@ async def generate_report(file_path: str, output_md: str):
         for idx, img_path in enumerate(image_paths):
             page_num = idx + 1
             dash_path = f"tmp/seal_dashboard_page{page_num}.png"
-            seal_regions = _detect_seals(img_path, model)
+            seal_regions = _detect_seals(img_path, model, is_scanned=ingestion.is_scanned)
             if seal_regions:
-                generate_seal_dashboard(img_path, seal_regions, dash_path)
+                generate_seal_dashboard(img_path, seal_regions, dash_path, is_scanned=ingestion.is_scanned)
                 seal_dashboards.append((page_num, dash_path))
                 print(f"Generated Seal dashboard for page {page_num} at: {dash_path}")
     except Exception as e:
@@ -74,7 +74,8 @@ async def generate_report(file_path: str, output_md: str):
         ela_score=ela_res.score,
         metadata_score=meta_res.score,
         seal_score=seal_res.score,
-        nlp_score=nlp_res.score
+        nlp_score=nlp_res.score,
+        is_scanned=ingestion.is_scanned,
     )
     
     print("7. Generating Forensic Summary via AI Model...")
@@ -156,9 +157,21 @@ def main():
     parser = argparse.ArgumentParser(description="Generate forensic document report with AI analysis and dashboards.")
     parser.add_argument("input_file", help="Path to input document (PDF or Image)")
     parser.add_argument("--output", default="ai_report.md", help="Path to save the generated markdown report")
+    parser.add_argument(
+        "--multiscale",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable multi-quality ELA (default: enabled)",
+    )
+    parser.add_argument(
+        "--mask",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable document/text masking during ELA (default: enabled)",
+    )
     args = parser.parse_args()
     
-    asyncio.run(generate_report(args.input_file, args.output))
+    asyncio.run(generate_report(args.input_file, args.output, multiscale=args.multiscale, mask=args.mask))
 
 if __name__ == "__main__":
     main()

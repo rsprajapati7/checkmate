@@ -107,7 +107,7 @@ def draw_report_card(width, height, name, score, label, explanation, doc_type, a
     return card
 
 
-def build_dashboard(image_path, output_path, use_multiscale=True, quality=85, preprocess=None):
+def build_dashboard(image_path, output_path, use_multiscale=True, quality=85, preprocess=None, is_scanned=True):
     """Generate and save the 4-panel diagnostic dashboard.
 
     Parameters
@@ -122,6 +122,8 @@ def build_dashboard(image_path, output_path, use_multiscale=True, quality=85, pr
         Quality value to use if not multiscale.
     preprocess : dict, optional
         Preprocessing options to pass to ELA computation.
+    is_scanned : bool, optional
+        Whether the document is a scanned image (default: True).
     """
     img_path_str = str(Path(image_path).resolve())
     name = Path(image_path).name
@@ -141,7 +143,14 @@ def build_dashboard(image_path, output_path, use_multiscale=True, quality=85, pr
     text_mask = generate_text_mask(img_path_str, doc_mask)
     doc_type = classify_document_type(img_path_str, doc_mask)
 
-    score = risk_score(error_map, doc_mask=doc_mask, text_mask=text_mask, doc_type=doc_type, image_path=img_path_str)
+    score = risk_score(
+        error_map,
+        doc_mask=doc_mask,
+        text_mask=text_mask,
+        doc_type=doc_type,
+        image_path=img_path_str,
+        is_scanned=is_scanned,
+    )
     regions = find_anomalous_regions(error_map, doc_mask=doc_mask)
     stats = error_stats(error_map)
     label, explanation = classify_risk(score)
