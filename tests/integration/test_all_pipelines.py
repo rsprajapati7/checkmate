@@ -13,7 +13,7 @@ from backend.pipelines.seal_detection.scorer import run_seal_pipeline
 from backend.pipelines.nlp_cross_doc.scorer import run_nlp_pipeline
 from backend.cross_analysis.registry_client import verify_document
 
-async def test_file(file_path: str):
+async def run_test_file(file_path: str):
     print("=" * 80)
     print(f"Testing File: {file_path}")
     print("=" * 80)
@@ -108,7 +108,7 @@ async def main():
     assets = ["Neeraj-7.pdf", "Roll.jpeg"]
     for asset in assets:
         if os.path.exists(asset):
-            await test_file(asset)
+            await run_test_file(asset)
         else:
             print(f"Asset '{asset}' not found in current directory.")
 
