@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import upload, analyze, status, report
+from backend.api.routes import upload, analyze, status, report, cli_routes
 from backend.core.config import settings
 from backend.core.database import init_db, ping_db
 from backend.core.logger import get_logger
@@ -78,18 +78,33 @@ app.include_router(upload.router)
 app.include_router(analyze.router)
 app.include_router(status.router)
 app.include_router(report.router)
+app.include_router(cli_routes.router)
+
+
+_llm_ok_cache = {"status": False, "timestamp": 0.0}
 
 
 @app.get("/health", tags=["system"])
 async def health_check():
     """Extended health check — DB, LLM, model status."""
+    import time
+    import asyncio
+
     db_ok = await ping_db()
-    llm_ok = False
-    try:
-        from backend.ai_investigator.llm_client import llm_client
-        llm_ok = await llm_client.ping()
-    except Exception:
-        pass
+    
+    now = time.time()
+    # Cache health check for 60 seconds to avoid hitting API rate limits and causing startup timeouts
+    if now - _llm_ok_cache["timestamp"] > 60.0:
+        llm_ok = False
+        try:
+            from backend.ai_investigator.llm_client import llm_client
+            llm_ok = await asyncio.wait_for(llm_client.ping(), timeout=5.0)
+        except Exception:
+            pass
+        _llm_ok_cache["status"] = llm_ok
+        _llm_ok_cache["timestamp"] = now
+
+    llm_ok = _llm_ok_cache["status"]
 
     return {
         "status": "ok" if db_ok else "degraded",

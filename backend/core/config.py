@@ -1,3 +1,4 @@
+import sys
 from pydantic_settings import BaseSettings
 from typing import Literal
 
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     OUTPUT_DIR: str = "./tmp/checkmate-output"
 
     # OCR
-    TESSERACT_CMD: str = r"D:\Tessaract-OCR\tesseract.exe"
+    TESSERACT_CMD: str = r"D:\Tessaract-OCR\tesseract.exe" if sys.platform == "win32" else "tesseract"
 
     # YOLOv8 seal detection
     YOLO_MODEL_PATH: str = "models/yolov8/seal_detector.pt"
@@ -54,3 +55,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Automatically adjust PostgreSQL URLs to use the async pg driver if necessary
+if settings.DATABASE_URL.startswith("postgresql://"):
+    settings.DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
