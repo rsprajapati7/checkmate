@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { loadConfig } from './config.js';
 
 // Get directory paths
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,7 +11,14 @@ const rootDir = path.resolve(cliDir, '..');
 
 const DEFAULT_API_URL = 'http://localhost:8000';
 
+// Priority: env var > ~/.checkmate/config.json > .env files > default
 let envApiUrl = process.env.CHECKMATE_API_URL;
+if (!envApiUrl) {
+  const userConfig = loadConfig();
+  if (userConfig.api_url) {
+    envApiUrl = userConfig.api_url;
+  }
+}
 if (!envApiUrl) {
   const envPaths = [
     path.join(cliDir, '.env'),
@@ -35,6 +43,7 @@ if (!envApiUrl) {
     }
   }
 }
+
 
 let resolvedUrl = envApiUrl || DEFAULT_API_URL;
 if (resolvedUrl && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://')) {
