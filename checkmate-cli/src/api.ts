@@ -36,7 +36,17 @@ if (!envApiUrl) {
   }
 }
 
-export const API_URL = envApiUrl || DEFAULT_API_URL;
+let resolvedUrl = envApiUrl || DEFAULT_API_URL;
+if (resolvedUrl && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://')) {
+  if (resolvedUrl.includes('localhost') || resolvedUrl.includes('127.0.0.1')) {
+    resolvedUrl = 'http://' + resolvedUrl;
+  } else {
+    resolvedUrl = 'https://' + resolvedUrl;
+  }
+}
+
+export const API_URL = resolvedUrl;
+
 
 
 export interface HealthResponse {
