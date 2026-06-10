@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy source code, models, and configuration
 COPY backend/ ./backend/
 COPY models/ ./models/
-COPY .env.example ./.env
+
 
 EXPOSE 8000
 
