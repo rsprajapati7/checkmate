@@ -271,3 +271,47 @@ export async function generateReport(results: ScanResponse): Promise<{ data: Buf
   
   return { data, isPdf };
 }
+
+/**
+ * Stream an AI-generated forensic summary for completed scan results.
+ * The backend calls Gemma and streams a markdown narrative.
+ */
+export async function aiSummary(
+  results: ScanResponse,
+  onChunk: (text: string) => void
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/cli/ai-summary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ results }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    let detail = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      detail = parsed.detail || errorText;
+    } catch {
+      // ignore
+    }
+    throw new Error(detail);
+  }
+
+  if (!res.body) {
+    throw new Error('Response stream body is null');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let done = false;
+
+  while (!done) {
+    const { value, done: doneReading } = await reader.read();
+    done = doneReading;
+    if (value) {
+      onChunk(decoder.decode(value, { stream: !done }));
+    }
+  }
+}
+

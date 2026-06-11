@@ -3,15 +3,30 @@ import { Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
 import fs from 'fs';
 import path from 'path';
+import { marked } from 'marked';
+import TerminalRenderer from 'marked-terminal';
 import { Banner } from './Banner.js';
 import { HelpMenu } from './HelpMenu.js';
 import { StatusCheck } from './StatusCheck.js';
 import { PipelineProgress } from './PipelineProgress.js';
 import { DiagnosticTable } from './DiagnosticTable.js';
 import { ChatPanel } from './ChatPanel.js';
-import { scanDocument, chatWithGemma, generateReport, ScanResponse } from '../api.js';
+import { scanDocument, chatWithGemma, generateReport, aiSummary, ScanResponse } from '../api.js';
 import { theme } from '../theme.js';
 import { SYM } from '../utils.js';
+
+// Set up markdown renderer once (reused for AI summary panel)
+marked.setOptions({
+  renderer: new TerminalRenderer({
+    code: theme.gold,
+    blockquote: theme.coral.italic,
+    heading: theme.boldGold,
+    firstHeading: theme.boldGold,
+    strong: theme.boldSand,
+    em: theme.sand.italic,
+    codespan: theme.coral,
+  }),
+});
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -28,8 +43,10 @@ interface StatusLog { id: string; type: 'status'; }
 interface ScanLog   { id: string; type: 'scan';  filePath: string; isApiDone: boolean; results?: ScanResponse; }
 interface TableLog  { id: string; type: 'table'; results: ScanResponse; }
 interface ChatLog   { id: string; type: 'chat';  messages: { role: 'user' | 'assistant'; content: string }[]; }
+interface AISummaryLog { id: string; type: 'ai-summary'; content: string; isStreaming: boolean; }
 
-type LogItem = TextLog | ErrorLog | BannerLog | HelpLog | StatusLog | ScanLog | TableLog | ChatLog;
+type LogItem = TextLog | ErrorLog | BannerLog | HelpLog | StatusLog | ScanLog | TableLog | ChatLog | AISummaryLog;
+
 
 interface ShellProps {
   isOffline?: boolean;
@@ -311,11 +328,47 @@ export const Shell: React.FC<ShellProps> = ({ isOffline = false }) => {
   };
 
   const handleScanComplete = (logId: string, results: ScanResponse) => {
+    // Replace the scan progress log with the results table
     setLogs((prev) =>
       prev.map((item) =>
         item.id === logId ? ({ id: logId, type: 'table', results } as TableLog) : item
       )
     );
+    // Auto-trigger AI summary immediately after the table is shown
+    const summaryId = makeId('ai-summary');
+    setLogs((prev) => [
+      ...prev,
+      { id: summaryId, type: 'ai-summary', content: '', isStreaming: true } as AISummaryLog,
+    ]);
+    let accumulated = '';
+    aiSummary(results, (chunk) => {
+      accumulated += chunk;
+      setLogs((prev) =>
+        prev.map((item) =>
+          item.id === summaryId
+            ? { ...item, content: accumulated } as AISummaryLog
+            : item
+        )
+      );
+    })
+      .catch((err) => {
+        setLogs((prev) =>
+          prev.map((item) =>
+            item.id === summaryId
+              ? { ...item, content: `[AI summary unavailable: ${err.message}]`, isStreaming: false } as AISummaryLog
+              : item
+          )
+        );
+      })
+      .finally(() => {
+        setLogs((prev) =>
+          prev.map((item) =>
+            item.id === summaryId
+              ? { ...item, isStreaming: false } as AISummaryLog
+              : item
+          )
+        );
+      });
   };
 
   // ── Prompt label ─────────────────────────────────────────────────────────
@@ -328,10 +381,13 @@ export const Shell: React.FC<ShellProps> = ({ isOffline = false }) => {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // Limit visible logs to the most recent 2 items to prevent terminal overflow and infinite scrolling
+  const visibleLogs = logs.slice(-2);
+
   return (
     <Box flexDirection="column" paddingBottom={1}>
       {/* Output scroll */}
-      {logs.map((item) => {
+      {visibleLogs.map((item) => {
         if (item.type === 'banner') {
           return <Banner key={item.id} />;
         }
@@ -353,6 +409,48 @@ export const Shell: React.FC<ShellProps> = ({ isOffline = false }) => {
         }
         if (item.type === 'table') {
           return <DiagnosticTable key={item.id} results={(item as TableLog).results} />;
+        }
+        if (item.type === 'ai-summary') {
+          const summaryItem = item as AISummaryLog;
+          let renderedContent = summaryItem.content;
+          if (!summaryItem.isStreaming && summaryItem.content) {
+            try {
+              renderedContent = marked(summaryItem.content).toString().trim();
+            } catch {
+              /* keep raw */
+            }
+          }
+          return (
+            <Box
+              key={item.id}
+              flexDirection="column"
+              borderStyle="single"
+              borderColor={theme.colors.gold as any}
+              paddingX={2}
+              paddingY={1}
+              marginX={2}
+              marginBottom={1}
+            >
+              <Box marginBottom={1}>
+                <Text bold color={theme.colors.gold as any}>-- AI FORENSIC REPORT  </Text>
+                {summaryItem.isStreaming && (
+                  <Text color="gray" dimColor> generating...</Text>
+                )}
+              </Box>
+              {summaryItem.content ? (
+                summaryItem.isStreaming ? (
+                  <Text color="white">
+                    {summaryItem.content}
+                    <Text color={theme.colors.sage as any}>▌</Text>
+                  </Text>
+                ) : (
+                  <Text>{renderedContent}</Text>
+                )
+              ) : (
+                <Text italic color="gray">Analyzing findings...</Text>
+              )}
+            </Box>
+          );
         }
         if (item.type === 'chat') {
           const chatItem = item as ChatLog;

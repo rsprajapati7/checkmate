@@ -151,6 +151,15 @@ def compute_ela(image_path, quality=85, preprocess=None):
 
     original = load_image(image_path)
     
+    # Pre-compress to JPEG at quality 95 to create a baseline JPEG grid if the input is not JPEG
+    suffix = Path(image_path).suffix.lower()
+    if suffix not in _JPEG_EXTENSIONS:
+        grid_buffer = io.BytesIO()
+        original.save(grid_buffer, format="JPEG", quality=95)
+        grid_buffer.seek(0)
+        original = Image.open(grid_buffer)
+        original.load()
+
     # Apply preprocessing if requested
     if preprocess and preprocess.get('enabled', False):
         clahe_clip = preprocess.get('clahe_clip', 2.0)

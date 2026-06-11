@@ -67,13 +67,15 @@ def _run_sync(image_paths: List[str], is_scanned: bool = True) -> SealResult:
                 # For native digital PDFs, high sharpness and ELA are expected.
                 # Only scanned docs should be flagged as suspicious.
                 if is_scanned:
-                    if lap_var > 1200 and ela_score > 4.0:
+                    # Pasted digital stamps on scanned documents are sharper than scanned elements
+                    # and have higher relative ELA compression discrepancies.
+                    if lap_var > 500 and ela_score > 1.6:
                         is_suspicious = True
                         reason_parts.append(f"sharpness={lap_var:.0f}")
-                        reason_parts.append(f"ELA={ela_score:.1f}")
-                    elif ela_score > 6.0:
+                        reason_parts.append(f"ELA={ela_score:.2f}")
+                    elif ela_score > 4.0:
                         is_suspicious = True
-                        reason_parts.append(f"ELA={ela_score:.1f}")
+                        reason_parts.append(f"ELA={ela_score:.2f}")
 
                 if is_suspicious:
                     suspicious += 1
@@ -230,19 +232,31 @@ def _heuristic_seal_detection(img_path: str, is_scanned: bool = True) -> List[tu
 
 def _crop_ela_score(img_path: str, x1: int, y1: int, x2: int, y2: int) -> float:
     try:
+        # Load full page image
         img = Image.open(img_path).convert("RGB")
-        crop = img.crop((x1, y1, x2, y2))
-        if crop.size[0] < 10 or crop.size[1] < 10:
-            return 0.0
+        orig_np = np.array(img, dtype=np.float32)
+        
+        # Save full page as JPEG at quality 85 to compute ELA
         buf = io.BytesIO()
-        crop.save(buf, format="JPEG", quality=85)
+        img.save(buf, format="JPEG", quality=85)
         buf.seek(0)
+        
         recomp = Image.open(buf)
         recomp.load()
-        orig_np = np.array(crop, dtype=np.float32)
         recomp_np = np.array(recomp, dtype=np.float32)
+        
         if orig_np.shape != recomp_np.shape:
             return 0.0
-        return float(np.mean(np.abs(orig_np - recomp_np)))
+            
+        # Compute difference map for the whole page
+        diff_map = np.abs(orig_np - recomp_np)
+        if diff_map.ndim == 3:
+            diff_map = np.mean(diff_map, axis=2)
+            
+        # Crop the difference map to the seal region and take the mean
+        crop_diff = diff_map[y1:y2, x1:x2]
+        if crop_diff.size == 0:
+            return 0.0
+        return float(np.mean(crop_diff))
     except Exception:
         return 0.0

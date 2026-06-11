@@ -100,6 +100,19 @@ def rule_blank_author_on_official_doc(meta: dict) -> Tuple[bool, str, float]:
     return False, "", 0.0
 
 
+def rule_design_software_origin(meta: dict) -> Tuple[bool, str, float]:
+    """Creator or Producer matches editing/design software (Canva, Photoshop, Figma, etc.)."""
+    creator = (meta.get("creator") or "").lower()
+    producer = (meta.get("producer") or "").lower()
+    full = creator + " " + producer
+    # Design/graphic tools that should never generate official certificates/admit cards/bank statements
+    design_tools = ("canva", "photoshop", "illustrator", "figma", "sketch", "indesign", "gimp", "inkscape", "coreldraw")
+    for tool in design_tools:
+        if tool in full:
+            return True, f"Document generated or edited with graphic design software: '{tool.capitalize()}' (Creator='{meta.get('creator')}', Producer='{meta.get('producer')}')", 0.80
+    return False, "", 0.0
+
+
 ALL_RULES = [
     rule_creation_after_modification,
     rule_producer_scanner_mismatch,
@@ -108,4 +121,5 @@ ALL_RULES = [
     rule_incremental_save_anomaly,
     rule_xmp_pdf_date_mismatch,
     rule_blank_author_on_official_doc,
+    rule_design_software_origin,
 ]

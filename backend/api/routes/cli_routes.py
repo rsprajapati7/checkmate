@@ -302,3 +302,94 @@ async def cli_report(req: ReportRequest):
     except Exception as e:
         logger.error(f"[CLI Report] Failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------------------------------------------------------------------------- #
+#  POST /api/v1/cli/ai-summary
+# --------------------------------------------------------------------------- #
+
+class AISummaryRequest(BaseModel):
+    results: dict
+
+
+@router.post("/ai-summary")
+async def cli_ai_summary(req: AISummaryRequest):
+    """
+    Stream an AI-generated forensic summary for completed scan results.
+    """
+    res = req.results
+    filename = res.get("filename", "document")
+    file_type = res.get("file_type", "PDF")
+    page_count = res.get("page_count", 0)
+    is_scanned = res.get("is_scanned", False)
+    final_score = res.get("final_score", 0.0)
+    risk_tier = res.get("risk_tier", "GREEN")
+
+    pipelines = res.get("pipelines", {})
+    ela = pipelines.get("ela", {})
+    meta = pipelines.get("metadata", {})
+    seal = pipelines.get("seal", {})
+    nlp = pipelines.get("nlp", {})
+
+    prompt = f"""
+You are CheckMate AI, a senior forensic document investigator. Analyze the following pipeline results and write a highly professional, concise forensic summary.
+Do not use emojis in your response. Keep the tone clinical, objective, and authoritative.
+Limit the response to 4-5 sentences, highlighting:
+1. The overall verdict and threat level.
+2. The key findings from ELA, Metadata, Seal, and NLP/QR pipelines.
+3. Any immediate actions recommended.
+
+Document Details:
+- Filename: {filename}
+- File Type: {file_type}
+- Pages: {page_count}
+- Scan Status: {"Scanned" if is_scanned else "Digital PDF"}
+
+Pipeline Metrics:
+- ELA Forgery Score: {ela.get('score', 0.0)}/100 (Flags: {ela.get('flags', [])})
+- Metadata Anomaly Score: {meta.get('score', 0.0)}/100 (Flags: {meta.get('flags', [])})
+- Seal Tampering Score: {seal.get('score', 0.0)}/100 (Seals: {seal.get('seals_found', 0)}, Suspicious: {seal.get('suspicious', 0)}, Flags: {seal.get('flags', [])})
+- NLP Semantic Score: {nlp.get('score', 0.0)}/100 (Flags: {nlp.get('flags', [])})
+
+Global Risk Status:
+- Final Integrated Score: {final_score}/100
+- Risk Tier: {risk_tier}
+"""
+
+    async def event_generator():
+        if settings.LLM_PROVIDER == "google":
+            from google import genai
+            client = genai.Client(api_key=settings.GEMMA_API_KEY)
+            
+            try:
+                response_stream = await client.aio.models.generate_content_stream(
+                    model=settings.LLM_MODEL,
+                    contents=[prompt],
+                    config=genai.types.GenerateContentConfig(
+                        max_output_tokens=settings.LLM_MAX_TOKENS,
+                        temperature=settings.LLM_TEMPERATURE,
+                    )
+                )
+                async for chunk in response_stream:
+                    if chunk.text:
+                        yield chunk.text
+            except Exception as e:
+                logger.error(f"[CLI AI Summary Stream] Failed: {e}")
+                yield f"\n[Error: {e}]"
+        else:
+            try:
+                response = await llm_client.complete(prompt)
+                yield response
+            except Exception as e:
+                yield f"\n[Error: {e}]"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
