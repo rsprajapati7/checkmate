@@ -16,7 +16,7 @@ Scoring components (100 points total):
 import cv2
 import numpy as np
 
-from ghost import compute_jpeg_ghost, ghost_block_variance
+from backend.pipelines.ela_forgery.ghost import compute_jpeg_ghost, ghost_block_variance
 
 
 # ---------------------------------------------------------------------------

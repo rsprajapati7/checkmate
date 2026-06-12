@@ -17,7 +17,7 @@ Execution flow:
 import asyncio
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,7 +71,7 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
             job.stage = stage
             job.progress = progress
             job.error_message = error
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now(timezone.utc)
             await db.commit()
 
     try:
@@ -141,7 +141,7 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
         await update_job(JobStatus.ANALYZING, "nlp_consistency", 50)
         logger.info(f"[Worker:{job_id}] Step 4 — NLP cross-document consistency")
 
-        nlp_result: NLPResult = await run_nlp_pipeline(ingestion)
+        nlp_result: NLPResult = await run_nlp_pipeline(ingestion, doc_type=doc_type)
 
         # ------------------------------------------------------------------ #
         # STEP 5: Registry Verification
@@ -178,22 +178,46 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
 
         # Look up historical entries with same ID numbers
         historical_matches = []
-        all_ids = (
+        all_ids = list(set(
             nlp_result.entities.get("pan_numbers", []) +
             nlp_result.entities.get("aadhaar_numbers", []) +
             doc_id_result.detected_id_numbers
-        )
+        ))
 
         if all_ids:
             try:
                 from sqlalchemy import select
-                stmt = select(HistoricalEntry).where(
-                    HistoricalEntry.id_numbers.op('&&')(all_ids)  # array overlap
-                ).limit(10)
-                # Note: this requires PostgreSQL array overlap operator
-                # For SQLite fallback, we skip this and rely on LLM
-            except Exception:
-                pass
+                if "sqlite" in settings.DATABASE_URL:
+                    # SQLite does not support the PostgreSQL '&&' array overlap operator.
+                    # Scan recent historical entries and filter in Python.
+                    stmt = select(HistoricalEntry).order_by(
+                        HistoricalEntry.created_at.desc()
+                    ).limit(200)
+                    result_rows = await db.execute(stmt)
+                    all_id_set = set(all_ids)
+                    for entry in result_rows.scalars():
+                        if set(entry.id_numbers or []) & all_id_set:
+                            historical_matches.append({
+                                "doc_type": entry.doc_type,
+                                "id_numbers": entry.id_numbers,
+                                "risk_tier": entry.risk_tier.value if entry.risk_tier else None,
+                                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                            })
+                else:
+                    # PostgreSQL: use native array overlap operator
+                    stmt = select(HistoricalEntry).where(
+                        HistoricalEntry.id_numbers.op('&&')(all_ids)
+                    ).limit(10)
+                    result_rows = await db.execute(stmt)
+                    for entry in result_rows.scalars():
+                        historical_matches.append({
+                            "doc_type": entry.doc_type,
+                            "id_numbers": entry.id_numbers,
+                            "risk_tier": entry.risk_tier.value if entry.risk_tier else None,
+                            "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                        })
+            except Exception as hist_err:
+                logger.warning("[Worker:%s] Historical lookup failed: %s", job_id, hist_err)
 
         pattern_result: PatternResult = await run_pattern_detection(
             current_entities=nlp_result.entities,
@@ -365,9 +389,20 @@ async def run_pipeline(job_id: str, document_id: str, file_path: str, db: AsyncS
         db.add(historical)
 
         await update_job(JobStatus.DONE, "completed", 100)
-        logger.info(f"[Worker:{job_id}] Pipeline complete — {fusion.risk_tier.value} ({fusion.final_score:.3f})")
+        logger.info(
+            "[Worker:%s] Pipeline complete — %s (%.3f)",
+            job_id, fusion.risk_tier.value, fusion.final_score,
+        )
+
+        # Clean up temp files (CRITICAL-05 fix: was never called before)
+        try:
+            from backend.core.storage import cleanup_job_temp, delete_file
+            cleanup_job_temp(job_id)   # removes per-page rendered images + report outputs
+            delete_file(file_path)     # removes the original uploaded file
+        except Exception as clean_err:
+            logger.warning("[Worker:%s] Cleanup failed (non-fatal): %s", job_id, clean_err)
 
     except Exception as exc:
         error_msg = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
-        logger.error(f"[Worker:{job_id}] Pipeline FAILED: {error_msg}")
+        logger.error("[Worker:%s] Pipeline FAILED: %s", job_id, error_msg)
         await update_job(JobStatus.FAILED, "error", 0, error=str(exc))

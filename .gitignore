@@ -1,15 +1,47 @@
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
+*$py.class
+*.pyc
+.Python
+
+# Environments
 .venv/
+.venv-1/
 venv/
 env/
+ENV/
 
-# Node
-node_modules/
-dist/
-.vite/
+# CheckMate runtime artifacts (MEDIUM-26 fix: large personal docs in repo root)
+*.db
+*.db-shm
+*.db-wal
+checkmate.db*
+
+# Generated report files (can be large and contain PII)
+# Keep templates but not generated outputs
+backend/report_gen/templates/  # keep (excluded via exception below)
+*.html
+!backend/report_gen/templates/*.html
+!frontend/**/*.html
+*.pdf
+!README*.pdf
+
+# Test fixture documents (store in tests/fixtures/ not root)
+*.jpeg
+*.jpg
+*.png
+!backend/pipelines/ela_forgery/test_*.png
+!frontend/**/*.png
+!frontend/**/*.jpg
+
+# Uploaded / output temp files
+tmp/
+/tmp/
+
+# Model weights (too large for git; use git-lfs or download scripts)
+models/
+!models/.gitkeep
 
 # IDE
 .vscode/
@@ -21,20 +53,17 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Project
-backend/uploads/
-*.pdf
-!docs/**/*.pdf
+# Build
+dist/
+build/
+*.egg-info/
+.eggs/
 
-# Environment
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Environment files with secrets
 .env
-*.local
-
-# Local DB & Temp Files
-checkmate.db
-tmp/
-*.jpeg
-*.jpg
-*.png
-!backend/**/*.png
-
+!.env.example

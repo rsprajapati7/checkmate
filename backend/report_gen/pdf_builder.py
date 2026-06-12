@@ -5,7 +5,7 @@ Falls back to HTML file if WeasyPrint is not installed.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader

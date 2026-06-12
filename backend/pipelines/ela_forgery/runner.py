@@ -9,7 +9,6 @@ import asyncio
 import base64
 import io
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -18,14 +17,6 @@ from PIL import Image
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
-
-# ---------------------------------------------------------------------------
-# Ensure ela_forgery directory is on sys.path so relative imports inside
-# ela.py, ghost.py, analyze.py, docdetect.py, visualize.py work correctly.
-# ---------------------------------------------------------------------------
-_ELA_DIR = Path(__file__).parent
-if str(_ELA_DIR) not in sys.path:
-    sys.path.insert(0, str(_ELA_DIR))
 
 
 @dataclass
@@ -48,20 +39,19 @@ async def run_ela_pipeline(
     Run ELA on a list of document page images (PNG paths).
     Returns an ELAResult aggregating all pages.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _run_ela_sync, image_paths, multiscale, mask, is_scanned)
 
 
 def _run_ela_sync(image_paths: List[str], multiscale: bool = True, mask: bool = True, is_scanned: bool = True) -> ELAResult:
     """Synchronous ELA execution — runs in a thread pool from the async caller."""
     try:
-        # Import from ela_forgery using the patched sys.path
-        from ela import compute_ela_multiscale, compute_ela          # noqa: E402
-        from docdetect import detect_document_region, generate_text_mask, classify_document_type  # noqa: E402
-        from analyze import risk_score, find_anomalous_regions, classify_risk  # noqa: E402
-        from visualize import generate_ela_heatmap                  # noqa: E402
+        from backend.pipelines.ela_forgery.ela import compute_ela_multiscale, compute_ela
+        from backend.pipelines.ela_forgery.docdetect import detect_document_region, generate_text_mask, classify_document_type
+        from backend.pipelines.ela_forgery.analyze import risk_score, find_anomalous_regions, classify_risk
+        from backend.pipelines.ela_forgery.visualize import generate_ela_heatmap
     except ImportError as e:
-        logger.error(f"[ELA] Import error: {e}")
+        logger.error("[ELA] Import error: %s", e)
         return ELAResult(score=0.0, risk_label="LOW", heatmap_b64=None, anomalous_regions=0,
                          flags=["ELA engine unavailable — import error"])
 

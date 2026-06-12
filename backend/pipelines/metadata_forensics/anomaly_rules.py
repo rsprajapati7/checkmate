@@ -5,7 +5,7 @@ Each rule is a function: (metadata_dict) -> (triggered: bool, flag_msg: str, sev
 severity is in range [0, 1] — contributes to the final metadata score.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 AnomalyRule = Callable[[dict], Tuple[bool, str, float]]
@@ -20,7 +20,9 @@ def _parse_date(date_str: str) -> Optional[datetime]:
         date_str = date_str[2:]
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%d%H%M", "%Y%m%d", "%Y-%m-%d", "%Y/%m/%d"):
         try:
-            return datetime.strptime(date_str[:len(fmt)], fmt)
+            parsed = datetime.strptime(date_str[:len(fmt)], fmt)
+            # Make naive datetimes timezone-aware (assume UTC, as PDF dates are UTC)
+            return parsed.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     return None
@@ -62,7 +64,7 @@ def rule_missing_metadata(meta: dict) -> Tuple[bool, str, float]:
 
 def rule_future_date(meta: dict) -> Tuple[bool, str, float]:
     """Any metadata date is in the future."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)  # timezone-aware (MEDIUM-17 fix)
     for key in ("creationDate", "modDate"):
         d = _parse_date(meta.get(key) or "")
         if d and d > now:

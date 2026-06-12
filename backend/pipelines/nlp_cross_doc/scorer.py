@@ -25,6 +25,11 @@ from backend.pipelines.nlp_cross_doc.accounting_rules import (
 
 logger = get_logger(__name__)
 
+# Document types where financial/accounting consistency checks are meaningful
+_FINANCIAL_DOC_TYPES = {
+    "bankstatement", "itr", "gst", "balancesheet", "profit", "financial", "account"
+}
+
 
 @dataclass
 class NLPResult:
@@ -119,12 +124,12 @@ def _cross_check_qr_fields(
 # Async entry point
 # ---------------------------------------------------------------------------
 
-async def run_nlp_pipeline(ingestion: IngestionResult) -> NLPResult:
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _run_sync, ingestion)
+async def run_nlp_pipeline(ingestion: IngestionResult, doc_type: str = "") -> NLPResult:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _run_sync, ingestion, doc_type)
 
 
-def _run_sync(ingestion: IngestionResult) -> NLPResult:
+def _run_sync(ingestion: IngestionResult, doc_type: str = "") -> NLPResult:
     # Use OCR text as the primary source; fall back to native text if OCR is sparse
     text = ingestion.full_ocr_text
     if len(text.strip()) < 100 and ingestion.full_native_text:
@@ -154,16 +159,22 @@ def _run_sync(ingestion: IngestionResult) -> NLPResult:
             flags.append(msg)
             total_severity += 0.55
 
-    # --- Financial consistency checks (if enough amounts extracted) ---
+    # --- Financial consistency checks ---
+    # Only run on document types where revenue/balance figures are expected.
+    # Running these on an Aadhaar card or PAN card would cause false positives
+    # since any numbers in the document could be misidentified as financial amounts.
+    doc_type_lower = doc_type.lower().replace(" ", "") if doc_type else ""
+    is_financial_doc = any(t in doc_type_lower for t in _FINANCIAL_DOC_TYPES)
+
     amounts = sorted(entities.money_amounts, reverse=True)
-    if len(amounts) >= 3:
+    if is_financial_doc and len(amounts) >= 3:
         assets, liabilities, equity = amounts[0], amounts[1], amounts[2]
         triggered, msg = check_balance_sheet(assets, liabilities, equity)
         if triggered:
             flags.append(msg)
             total_severity += 0.50
 
-    if len(amounts) >= 2:
+    if is_financial_doc and len(amounts) >= 2:
         revenue, gst_turnover = amounts[0], amounts[1]
         triggered, msg = check_revenue_gst_consistency(revenue, gst_turnover)
         if triggered:

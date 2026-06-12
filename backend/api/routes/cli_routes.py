@@ -72,7 +72,7 @@ async def cli_scan(file: UploadFile = File(...)):
 
     try:
         # Step 1 — Ingestion (sync, run in executor)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         ingestion = await loop.run_in_executor(
             None, ingest_document, file_path, job_id, output_dir
         )
@@ -86,6 +86,8 @@ async def cli_scan(file: UploadFile = File(...)):
         )
 
         # Step 3 — NLP (sequential, depends on ingestion)
+        # Note: doc_type unknown at this point in the CLI path; NLP financial guards
+        # default to off (empty doc_type) to prevent false positives.
         nlp_res = await run_nlp_pipeline(ingestion)
 
         # Step 4 — Fusion
@@ -199,23 +201,23 @@ async def cli_chat(req: ChatRequest):
 
     async def event_generator():
         if settings.LLM_PROVIDER == "google":
-            from google import genai
-            client = genai.Client(api_key=settings.GEMMA_API_KEY)
-            
+            # Reuse the module-level singleton instead of creating a new client per request
+            google_client = llm_client._get_google_client()
+            from google.genai import types as genai_types
             try:
-                response_stream = await client.aio.models.generate_content_stream(
+                response_stream = await google_client.aio.models.generate_content_stream(
                     model=settings.LLM_MODEL,
                     contents=[prompt],
-                    config=genai.types.GenerateContentConfig(
+                    config=genai_types.GenerateContentConfig(
                         max_output_tokens=settings.LLM_MAX_TOKENS,
                         temperature=settings.LLM_TEMPERATURE,
-                    )
+                    ),
                 )
                 async for chunk in response_stream:
                     if chunk.text:
                         yield chunk.text
             except Exception as e:
-                logger.error(f"[CLI Chat Stream] Failed: {e}")
+                logger.error("[CLI Chat Stream] Failed: %s", e)
                 yield f"\n[Error: {e}]"
         else:
             try:
@@ -268,7 +270,7 @@ async def cli_report(req: ReportRequest):
             filename=res.get("filename", "document"),
             doc_type=res.get("file_type", "PDF"),
             risk_tier=res.get("risk_tier", "GREEN"),
-            tier_label="Verified Safe" if res.get("risk_tier") == "GREEN" else "Suspicious" if res.get("risk_tier") == "ORANGE" else "Critical Risk",
+            tier_label="Verified Safe" if res.get("risk_tier") == "GREEN" else "Suspicious" if res.get("risk_tier") == "AMBER" else "Critical Risk",
             final_score=res.get("final_score", 0.0) / 100.0,
             ela_score=ela.get("score", 0.0),
             metadata_score=meta.get("score", 0.0),
@@ -358,23 +360,23 @@ Global Risk Status:
 
     async def event_generator():
         if settings.LLM_PROVIDER == "google":
-            from google import genai
-            client = genai.Client(api_key=settings.GEMMA_API_KEY)
-            
+            # Reuse the module-level singleton instead of creating a new client per request
+            google_client = llm_client._get_google_client()
+            from google.genai import types as genai_types
             try:
-                response_stream = await client.aio.models.generate_content_stream(
+                response_stream = await google_client.aio.models.generate_content_stream(
                     model=settings.LLM_MODEL,
                     contents=[prompt],
-                    config=genai.types.GenerateContentConfig(
+                    config=genai_types.GenerateContentConfig(
                         max_output_tokens=settings.LLM_MAX_TOKENS,
                         temperature=settings.LLM_TEMPERATURE,
-                    )
+                    ),
                 )
                 async for chunk in response_stream:
                     if chunk.text:
                         yield chunk.text
             except Exception as e:
-                logger.error(f"[CLI AI Summary Stream] Failed: {e}")
+                logger.error("[CLI AI Summary Stream] Failed: %s", e)
                 yield f"\n[Error: {e}]"
         else:
             try:

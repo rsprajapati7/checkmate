@@ -22,7 +22,7 @@ class MetadataResult:
 
 async def run_metadata_pipeline(ingestion: IngestionResult) -> MetadataResult:
     """Async entry point — runs in thread pool to avoid blocking."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _run_sync, ingestion)
 
 
