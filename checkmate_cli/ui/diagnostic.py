@@ -103,8 +103,6 @@ def print_diagnostic_table(console: Console, results: ScanResponse) -> None:
 
     risk_header = Text()
     risk_header.append("-- DOCUMENT SCAN REPORT", style="bold white")
-    risk_header.append("  Risk: ", style=HEX_SLATE)
-    risk_header.append(f"[{tier_label}]", style=tier_style)
 
     console.print()
     console.print(Panel(
