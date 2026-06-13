@@ -73,6 +73,7 @@ def _build_meta_dict(ingestion: IngestionResult) -> dict:
         meta[k.lower()] = v
 
     meta["incremental_save_count"] = ingestion.incremental_save_count
+    meta["is_scanned"] = ingestion.is_scanned
 
     # Parse XMP for date fields if available
     if ingestion.xmp_metadata:

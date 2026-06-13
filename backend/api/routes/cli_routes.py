@@ -109,6 +109,7 @@ async def cli_scan(file: UploadFile = File(...)):
             "is_scanned": ingestion.is_scanned,
             "risk_tier": fusion.risk_tier.value,
             "final_score": round(fusion.final_score * 100, 1),
+            "job_id": job_id,
             "pipelines": {
                 "ela": {
                     "score": ela_res.score,
@@ -394,4 +395,95 @@ Global Risk Status:
             "X-Accel-Buffering": "no"
         }
     )
+
+
+# --------------------------------------------------------------------------- #
+#  GET /api/v1/cli/dashboard
+# --------------------------------------------------------------------------- #
+
+@router.get("/dashboard")
+async def cli_dashboard(
+    job_id: str,
+    pipeline: str,
+    page_num: int = 1,
+    is_scanned: bool = True
+):
+    """
+    Generate and return ELA or Seal dashboard for a scanned document page.
+    """
+    output_dir = Path(settings.OUTPUT_DIR) / job_id
+    if not output_dir.exists():
+        raise HTTPException(status_code=404, detail="Job folder not found")
+
+    matching_files = list(output_dir.glob(f"*_page_{page_num}.*"))
+    if not matching_files:
+        matching_files = list(output_dir.glob(f"*_page_{page_num}*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail=f"Page image {page_num} not found")
+
+    img_path = str(matching_files[0].resolve())
+    temp_output = Path(output_dir) / f"{pipeline}_dashboard_temp_{page_num}.png"
+
+    try:
+        if pipeline.lower() == "ela":
+            import sys
+            import os
+            ela_dir = os.path.abspath(os.path.dirname(__file__) + "/../../pipelines/ela_forgery")
+            if ela_dir not in sys.path:
+                sys.path.insert(0, ela_dir)
+            from backend.pipelines.ela_forgery.dashboard import build_dashboard
+
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                build_dashboard,
+                img_path,
+                str(temp_output),
+                True,  # use_multiscale
+                85,   # quality
+                None, # preprocess
+                is_scanned
+            )
+        elif pipeline.lower() == "seal":
+            from backend.pipelines.seal_detection.visualize import generate_seal_dashboard
+            from backend.pipelines.seal_detection.scorer import _detect_seals, _load_yolo_model
+            
+            model = _load_yolo_model()
+            seal_regions = _detect_seals(img_path, model, is_scanned=is_scanned)
+            
+            if not seal_regions:
+                raise HTTPException(status_code=400, detail="No seals detected on this page")
+                
+            loop = asyncio.get_running_loop()
+            success = await loop.run_in_executor(
+                None,
+                generate_seal_dashboard,
+                img_path,
+                seal_regions,
+                str(temp_output),
+                is_scanned
+            )
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to generate seal dashboard")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid pipeline type. Choose 'ela' or 'seal'")
+
+        if not temp_output.exists():
+            raise HTTPException(status_code=500, detail="Dashboard file not generated")
+
+        with open(temp_output, "rb") as f:
+            content = f.read()
+
+        try:
+            os.remove(temp_output)
+        except Exception:
+            pass
+
+        return Response(content=content, media_type="image/png")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[CLI Dashboard] Failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 

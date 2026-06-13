@@ -17,6 +17,7 @@ COMMANDS = [
     ("/analyze", "/a",  "<file_path>",              "Upload document and run all forensic pipelines"),
     ("/view",    "/v",  "<ela|metadata|seal|nlp>",  "Dump raw JSON output of a specific engine"),
     ("/report",  "/r",  "<output.pdf|output.html>", "Generate a polished PDF/HTML forensic report"),
+    ("/dashboard", "/d", "<ela|seal> [page_num]",    "Generate and open ELA/Seal visual diagnostic dashboard"),
     ("/reset",   "/rt", "",                          "Clear chat memory and reset conversation history"),
     ("/status",  "/s",  "",                          "Run backend server health diagnostics"),
     ("/clear",   "/c",  "",                          "Clear terminal and redraw banner"),

@@ -32,6 +32,7 @@ from checkmate_cli.api import (
     chat_stream_sync,
     generate_report_sync,
     ai_summary_stream_sync,
+    generate_dashboard_sync,
 )
 from checkmate_cli.theme import (
     HEX_GOLD, HEX_CORAL, HEX_SAGE, HEX_CRIMSON, HEX_SLATE, HEX_SAND,
@@ -54,9 +55,9 @@ _PT_STYLE_ACTIVE = PTStyle.from_dict({
 
 # ── Tab-completable slash commands ───────────────────────────────────────────
 _SLASH_COMMANDS = [
-    "/analyze", "/view", "/report", "/reset",
+    "/analyze", "/view", "/report", "/dashboard", "/reset",
     "/status",  "/clear", "/exit", "/help",
-    "/a", "/v", "/r", "/rt", "/s", "/c", "/q", "/h",
+    "/a", "/v", "/r", "/d", "/rt", "/s", "/c", "/q", "/h",
 ]
 
 _COMPLETER = WordCompleter(_SLASH_COMMANDS, sentence=True)
@@ -91,8 +92,9 @@ def run_shell(
     console     Rich console instance (shared across all output)
     is_offline  True when backend is unavailable; disables scan/chat
     """
-    active_doc:   Optional[ScanResponse]                 = None
-    chat_history: list[dict[str, str]]                   = []
+    active_doc:         Optional[ScanResponse]   = None
+    chat_history:       list[dict[str, str]]       = []
+    active_report_path: Optional[Path]             = None
 
     session: Optional[PromptSession] = None
     try:
@@ -117,7 +119,7 @@ def run_shell(
     # ── Command handlers ─────────────────────────────────────────────────────
 
     def cmd_analyze(arg: str) -> None:
-        nonlocal active_doc
+        nonlocal active_doc, active_report_path
         if is_offline:
             _err(console, "Backend unavailable. Start the server and restart the CLI.")
             return
@@ -171,26 +173,52 @@ def run_shell(
             stem      = full_path.stem
             out_path  = full_path.parent / f"{stem}_report{ext}"
             out_path.write_bytes(data)
+            active_report_path = out_path
             _ok(console, f"Report saved to: {out_path}")
+            _info(console, "Type /view to open the report in your browser.")
         except Exception as exc:
             _warn(console, f"Auto-report failed: {exc}")
 
     def cmd_view(arg: str) -> None:
+        """Open the saved report in browser (no args), or show compact engine summary."""
         if not active_doc:
             _err(console, "No active document. Run /analyze <path> first.")
             return
+
+        # /view with no argument — open the saved report in the default browser
+        if not arg:
+            if active_report_path and active_report_path.exists():
+                import webbrowser
+                _info(console, f"Opening report: {active_report_path}")
+                webbrowser.open(active_report_path.as_uri())
+            else:
+                _err(console, "File not found: No saved report found. Run /report <output_path> to generate one first.")
+            return
+
+        # /view <engine> — show a compact score + flags summary
         valid = {"ela", "metadata", "meta", "seal", "nlp"}
         engine = arg.lower()
         if engine not in valid:
-            _err(console, "Usage: /view <ela | metadata | seal | nlp>")
+            _err(console, "Usage: /view [ela | metadata | seal | nlp]")
             return
         key = "metadata" if engine == "meta" else engine
         data = getattr(active_doc, key, None)
         if data is None:
             _err(console, f"No results for engine: {engine}")
             return
-        console.print(Text(f"\n[Raw Engine Output: {engine.upper()}]", style=f"bold {HEX_GOLD}"))
-        console.print_json(json.dumps(data))
+
+        score = float(data.get("score", 0)) if isinstance(data, dict) else 0.0
+        flags = data.get("flags", []) if isinstance(data, dict) else []
+
+        from checkmate_cli.theme import score_style
+        console.print(Text(f"\n  {engine.upper()} Pipeline Summary", style=f"bold {HEX_GOLD}"))
+        console.print(Text(f"  Score : {score:.1f}/100", style=str(score_style(score))))
+        if flags:
+            console.print(Text(f"  Flags :", style=f"bold {HEX_SLATE}"))
+            for f in flags:
+                console.print(Text(f"    > {f}", style=HEX_CORAL))
+        else:
+            console.print(Text("  Flags : (no anomalies detected)", style=f"italic {HEX_SLATE}"))
         console.print()
 
     def cmd_report(arg: str) -> None:
@@ -216,6 +244,64 @@ def run_shell(
             _ok(console, f"Report saved: {out_path} ({'PDF' if is_pdf else 'HTML'})")
         except Exception as exc:
             _err(console, f"Report failed: {exc}")
+
+    def cmd_dashboard(arg: str) -> None:
+        if is_offline:
+            _err(console, "Backend unavailable. Cannot generate dashboard.")
+            return
+        if not active_doc:
+            _err(console, "No active document. Run /analyze <path> first.")
+            return
+
+        parts = arg.strip().split()
+        if not parts:
+            _err(console, "Usage: /dashboard <ela | seal> [page_num]")
+            return
+
+        pipeline = parts[0].lower()
+        if pipeline not in ("ela", "seal"):
+            _err(console, f"Invalid pipeline: '{pipeline}'. Choose 'ela' or 'seal'")
+            return
+
+        page_num = 1
+        if len(parts) > 1:
+            try:
+                page_num = int(parts[1])
+                if page_num < 1 or page_num > active_doc.page_count:
+                    _err(console, f"Invalid page number. Document has {active_doc.page_count} pages.")
+                    return
+            except ValueError:
+                _err(console, f"Page number must be an integer (received: '{parts[1]}')")
+                return
+
+        if not active_doc.job_id:
+            _err(console, "No valid job_id found in the active document. Scan the document again.")
+            return
+
+        _info(console, f"Generating {pipeline.upper()} dashboard for page {page_num}...")
+        try:
+            img_bytes = generate_dashboard_sync(
+                job_id=active_doc.job_id,
+                pipeline=pipeline,
+                page_num=page_num,
+                is_scanned=active_doc.is_scanned
+            )
+            stem = Path(active_doc.filename).stem
+            out_name = f"{stem}_page_{page_num}_{pipeline}_dashboard.png"
+            out_path = Path("tmp") / out_name
+            os.makedirs("tmp", exist_ok=True)
+            out_path.write_bytes(img_bytes)
+            _ok(console, f"Dashboard saved: {out_path}")
+
+            import webbrowser
+            webbrowser.open(out_path.absolute().as_uri())
+            _info(console, "Opening dashboard image in system viewer...")
+        except Exception as exc:
+            msg = str(exc)
+            if "not found" in msg.lower():
+                _err(console, f"File not found: {msg}")
+            else:
+                _err(console, f"Dashboard failed: {exc}")
 
     def cmd_reset() -> None:
         nonlocal chat_history
@@ -291,6 +377,8 @@ def run_shell(
                 cmd_view(arg)
             elif cmd in ("/report", "/r"):
                 cmd_report(arg)
+            elif cmd in ("/dashboard", "/d"):
+                cmd_dashboard(arg)
             else:
                 _err(console, f'Unknown command: "{trimmed}". Type /help for the command index.')
         else:

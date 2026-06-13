@@ -122,6 +122,7 @@ class ScanResponse:
         self.pdf_metadata = data.get("pdf_metadata", {})
         self.qr_codes     = data.get("qr_codes", [])
         self.ocr_summary  = data.get("ocr_summary", "")
+        self.job_id       = data.get("job_id", "")
 
         pipelines = data.get("pipelines", {})
         self.ela      = pipelines.get("ela", {})
@@ -294,3 +295,33 @@ def ai_summary_stream_sync(results: ScanResponse):
             for chunk in r.iter_text():
                 if chunk:
                     yield chunk
+
+
+# ── Dashboard generation ──────────────────────────────────────────────────────
+def generate_dashboard_sync(
+    job_id: str,
+    pipeline: str,
+    page_num: int = 1,
+    is_scanned: bool = True
+) -> bytes:
+    """Request ELA or Seal dashboard image from the backend. Returns image bytes."""
+    with httpx.Client(timeout=90.0) as client:
+        r = client.get(
+            f"{API_URL}/api/v1/cli/dashboard",
+            params={
+                "job_id": job_id,
+                "pipeline": pipeline,
+                "page_num": page_num,
+                "is_scanned": is_scanned,
+            },
+            headers=_headers(),
+        )
+
+    if not r.is_success:
+        try:
+            detail = r.json().get("detail", r.text)
+        except Exception:
+            detail = r.text
+        raise RuntimeError(detail or "Failed to generate dashboard")
+
+    return r.content

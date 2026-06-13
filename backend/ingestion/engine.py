@@ -139,8 +139,13 @@ def _ingest_pdf(
         pil_img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         pil_img.save(img_path, format="JPEG", quality=95)
 
-        # OCR (run directly on the in-memory PIL image — no re-read from disk)
-        ocr_text = run_tesseract(pil_img)
+        # OCR on a 50%-scaled copy — 4× fewer pixels → 3-4× faster on Tesseract/EasyOCR.
+        # ELA and seal detection continue to use the full-resolution JPEG on disk.
+        ocr_img = pil_img.resize(
+            (pix.width // 2, pix.height // 2), Image.LANCZOS
+        )
+        ocr_text = run_tesseract(ocr_img)
+        del ocr_img
 
         # Native text layer
         native_text = page.get_text().strip() if not is_scanned else ""

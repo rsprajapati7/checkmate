@@ -104,6 +104,9 @@ def rule_blank_author_on_official_doc(meta: dict) -> Tuple[bool, str, float]:
 
 def rule_design_software_origin(meta: dict) -> Tuple[bool, str, float]:
     """Creator or Producer matches editing/design software (Canva, Photoshop, Figma, etc.)."""
+    if meta.get("is_scanned"):
+        return False, "", 0.0
+
     creator = (meta.get("creator") or "").lower()
     producer = (meta.get("producer") or "").lower()
     full = creator + " " + producer

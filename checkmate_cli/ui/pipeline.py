@@ -31,12 +31,12 @@ class Stage:
 
 
 STAGES: list[Stage] = [
-    Stage("ingest", "Document Ingestion",    "Parsing structure and extracting pages",           1.0),
-    Stage("ela",    "Error Level Analysis",   "Scanning compression and local noise differences", 1.2),
+    Stage("ingest", "Document Ingestion",    "Parsing structure and extracting pages",           3.5),
+    Stage("ela",    "Error Level Analysis",   "Scanning compression and local noise differences", 3.0),
     Stage("meta",   "Metadata Forensics",     "Analyzing PDF revision history and author tags",   0.8),
-    Stage("seal",   "Seal Detection",         "Running YOLO seal and signature detection",        1.5),
-    Stage("nlp",    "NLP Cross-Doc Scrutiny", "Checking logical flow and text consistency",       1.0),
-    Stage("fusion", "Score Fusion",           "Fusing scores and determining risk tier",          0.6),
+    Stage("seal",   "Seal Detection",         "Running YOLO seal and signature detection",        2.5),
+    Stage("nlp",    "NLP Cross-Doc Scrutiny", "Checking logical flow and text consistency",       0.8),
+    Stage("fusion", "Score Fusion",           "Fusing scores and determining risk tier",          0.5),
 ]
 
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]

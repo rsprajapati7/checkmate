@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./checkmate.db"
     REDIS_URL: str = "redis://localhost:6379/0"
+    REGISTRY_DB_PATH: str = "registry.db"
 
     # LLM Settings
     LLM_PROVIDER: Literal["google", "ollama"] = "google"

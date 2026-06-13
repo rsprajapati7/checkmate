@@ -42,6 +42,54 @@ async def run_seal_pipeline(image_paths: List[str], is_scanned: bool = True) -> 
     return await loop.run_in_executor(None, _run_sync, image_paths, is_scanned)
 
 
+def _is_likely_signature(crop: np.ndarray, x1: int, y1: int, x2: int, y2: int, img_w: int) -> bool:
+    """
+    Distinguish genuine pen signatures from pasted stamps/seals.
+
+    Signatures differ from seals in three measurable ways:
+    1. Aspect ratio: signatures are wide and thin (width >> height)
+    2. Ink density: signatures have sparse strokes; stamps are dense, filled shapes
+    3. Size: genuine stamps/seals are typically larger (>150x150px normalized)
+
+    Returns True if the region looks like a signature (should NOT be flagged).
+    """
+    h, w = crop.shape[:2]
+    if h == 0 or w == 0:
+        return False
+
+    aspect = w / float(h)
+
+    # Normalize dimensions to a standard 2480px page width
+    scale = img_w / 2480.0
+    norm_w = w / scale
+    norm_h = h / scale
+    norm_area = norm_w * norm_h
+
+    # 1. Very thin/short regions are almost certainly pen strokes
+    if norm_h < 95.0 and aspect > 1.2:
+        return True
+
+    # 2. Moderately tall but elongated regions (typical for signatures)
+    if norm_h < 130.0 and aspect > 2.0:
+        return True
+
+    # 3. Overall area is too small to be a standard official stamp/seal
+    # A standard stamp/seal is at least 150x150 (area 22,500)
+    if norm_area < 15000.0 and aspect > 1.2:
+        return True
+
+    # 4. Fallback to ink fill density: convert to grayscale, threshold, measure dark-pixel ratio
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop
+    _, thresh = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
+    ink_ratio = np.count_nonzero(thresh) / float(thresh.size)
+
+    # Signatures have sparse ink strokes (< 12% of bounding box filled)
+    if ink_ratio < 0.12:
+        return True
+
+    return False
+
+
 def _run_sync(image_paths: List[str], is_scanned: bool = True) -> SealResult:
     model = _load_yolo_model()
     total_seals = 0
@@ -60,14 +108,33 @@ def _run_sync(image_paths: List[str], is_scanned: bool = True) -> SealResult:
             if img_cv is None:
                 continue
 
+            # Compute the full-page ELA diff map ONCE — reused for all crop scores.
+            # Previously _crop_ela_score re-read + re-compressed the page per seal.
+            page_ela_map = _compute_page_ela_map(img_path)
+
             for idx, (x1, y1, x2, y2) in enumerate(seal_regions):
                 crop = img_cv[y1:y2, x1:x2]
                 if crop.size == 0:
                     continue
 
+                # Skip regions that look like handwritten signatures, not stamps
+                if _is_likely_signature(crop, x1, y1, x2, y2, img_cv.shape[1]):
+                    logger.info(
+                        "[Seal] Region #%d in %s classified as signature — skipping.",
+                        idx + 1, Path(img_path).name,
+                    )
+                    total_seals -= 1  # Don't count signatures as seals
+                    continue
+
                 gray_crop = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
                 lap_var = cv2.Laplacian(gray_crop, cv2.CV_64F).var()
-                ela_score = _crop_ela_score(img_path, x1, y1, x2, y2)
+
+                # Slice the pre-computed diff map instead of re-reading from disk
+                if page_ela_map is not None:
+                    crop_diff = page_ela_map[y1:y2, x1:x2]
+                    ela_score = float(np.mean(crop_diff)) if crop_diff.size > 0 else 0.0
+                else:
+                    ela_score = _crop_ela_score(img_path, x1, y1, x2, y2)
 
                 is_suspicious = False
                 reason_parts = []
@@ -75,11 +142,14 @@ def _run_sync(image_paths: List[str], is_scanned: bool = True) -> SealResult:
                 if is_scanned:
                     # Pasted digital stamps on scanned documents are sharper than
                     # the scanned background and show higher ELA compression mismatch.
-                    if lap_var > 500 and ela_score > 1.6:
+                    # Signature false positives are handled by _is_likely_signature()
+                    # which runs before this block, so thresholds can be set to
+                    # catch genuine digitally-pasted stamps (e.g. Var~650, ELA~1.8).
+                    if lap_var > 450 and ela_score > 1.7:
                         is_suspicious = True
                         reason_parts.append(f"sharpness={lap_var:.0f}")
                         reason_parts.append(f"ELA={ela_score:.2f}")
-                    elif ela_score > 4.0:
+                    elif ela_score > 3.5:
                         is_suspicious = True
                         reason_parts.append(f"ELA={ela_score:.2f}")
                 else:
@@ -251,8 +321,12 @@ def _heuristic_seal_detection(img_path: str, is_scanned: bool = True) -> List[tu
 
     return merged_boxes[:5]
 
-
-def _crop_ela_score(img_path: str, x1: int, y1: int, x2: int, y2: int) -> float:
+def _compute_page_ela_map(img_path: str) -> Optional[np.ndarray]:
+    """
+    Compute the full-page ELA diff map once and return it as a 2D float32 array.
+    Callers slice [y1:y2, x1:x2] per crop — avoids repeated disk reads and
+    JPEG recompression for every seal region on the same page.
+    """
     try:
         img = Image.open(img_path).convert("RGB")
         orig_np = np.array(img, dtype=np.float32)
@@ -266,15 +340,24 @@ def _crop_ela_score(img_path: str, x1: int, y1: int, x2: int, y2: int) -> float:
         recomp_np = np.array(recomp, dtype=np.float32)
 
         if orig_np.shape != recomp_np.shape:
-            return 0.0
+            return None
 
         diff_map = np.abs(orig_np - recomp_np)
         if diff_map.ndim == 3:
             diff_map = np.mean(diff_map, axis=2)
-
-        crop_diff = diff_map[y1:y2, x1:x2]
-        if crop_diff.size == 0:
-            return 0.0
-        return float(np.mean(crop_diff))
+        return diff_map
     except Exception:
+        return None
+
+
+def _crop_ela_score(img_path: str, x1: int, y1: int, x2: int, y2: int) -> float:
+    """Fallback: compute ELA score for a single crop by reading the full page.
+    Prefer _compute_page_ela_map() + slicing when scoring multiple crops.
+    """
+    ela_map = _compute_page_ela_map(img_path)
+    if ela_map is None:
         return 0.0
+    crop_diff = ela_map[y1:y2, x1:x2]
+    if crop_diff.size == 0:
+        return 0.0
+    return float(np.mean(crop_diff))

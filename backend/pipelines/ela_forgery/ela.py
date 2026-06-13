@@ -189,7 +189,7 @@ def compute_ela(image_path, quality=85, preprocess=None):
     return error
 
 
-def compute_ela_multiscale(image_path, qualities=(75, 85, 95), preprocess=None):
+def compute_ela_multiscale(image_path, qualities=(75, 90), preprocess=None):
     """Compute ELA at multiple quality levels and fuse the results.
 
     Multi-quality ELA is more robust because:
