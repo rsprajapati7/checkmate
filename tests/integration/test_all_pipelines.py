@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import os
 import sys
@@ -140,9 +141,27 @@ async def run_pipeline_test(file_path: str):
             print(f"Failed to generate Seal Dashboard for {img_path}: {e}")
 
 async def main():
-    if len(sys.argv) > 1:
-        assets = sys.argv[1:]
-    else:
+    parser = argparse.ArgumentParser(description="Run full forensics pipelines on documents.")
+    parser.add_argument("assets", nargs="*", help="File paths to process")
+    parser.add_argument("--device", choices=["cpu", "gpu", "cuda", "auto"], default="auto",
+                        help="Force execution on specific device (default: auto)")
+    parser.add_argument("--cpu", action="store_true", help="Force CPU execution (alias for --device cpu)")
+    parser.add_argument("--gpu", action="store_true", help="Force GPU execution (alias for --device gpu)")
+    args = parser.parse_args()
+
+    # Determine forced device
+    device = args.device
+    if args.cpu:
+        device = "cpu"
+    elif args.gpu:
+        device = "gpu"
+
+    os.environ["CHECKMATE_DEVICE"] = device
+    print(f"Device configuration set to: {device.upper()}")
+
+    # Determine assets
+    assets = args.assets
+    if not assets:
         assets = ["Neeraj-7.pdf", "Roll.jpeg"]
         if os.path.exists("Rajat.pdf"):
             assets.append("Rajat.pdf")

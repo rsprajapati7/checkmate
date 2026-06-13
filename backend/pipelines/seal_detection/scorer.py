@@ -140,7 +140,21 @@ def _detect_seals(img_path: str, model, is_scanned: bool = True) -> List[tuple]:
     if model is None:
         return _heuristic_seal_detection(img_path, is_scanned=is_scanned)
     try:
-        results = model(img_path, conf=settings.YOLO_CONFIDENCE_THRESHOLD, verbose=False)
+        device = "cpu"
+        import os
+        force_device = os.environ.get("CHECKMATE_DEVICE", "auto").lower()
+        if force_device in ("gpu", "cuda"):
+            device = "cuda"
+        elif force_device == "cpu":
+            device = "cpu"
+        else:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device = "cuda"
+            except ImportError:
+                pass
+        results = model(img_path, conf=settings.YOLO_CONFIDENCE_THRESHOLD, device=device, verbose=False)
         boxes = []
         for result in results:
             for box in result.boxes:
@@ -148,7 +162,7 @@ def _detect_seals(img_path: str, model, is_scanned: bool = True) -> List[tuple]:
                 boxes.append((x1, y1, x2, y2))
         return boxes
     except Exception as e:
-        logger.warning("[Seal] YOLO inference failed: %s", e)
+        logger.warning("[Seal] YOLO inference failed on device %s: %s", device if 'device' in locals() else 'unknown', e)
         return _heuristic_seal_detection(img_path, is_scanned=is_scanned)
 
 
