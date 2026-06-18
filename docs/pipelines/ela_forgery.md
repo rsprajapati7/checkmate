@@ -41,10 +41,10 @@ You can inspect the ELA metrics directly via the CLI:
 # Scan document and view ELA subscore in CLI
 python -m checkmate_cli analyze doc.pdf
 
-# Open interactive shell to inspect raw ELA scores
+# Open interactive shell to inspect visual ELA dashboards
 python -m checkmate_cli
 CheckMate >> /analyze doc.pdf
-CheckMate [doc.pdf] >> /view ela
+CheckMate [doc.pdf] >> /dashboard ela
 ```
 **Screenshot Space Placeholder:**
 *(Insert ELA Heatmap and Dashboard output screenshot here)*

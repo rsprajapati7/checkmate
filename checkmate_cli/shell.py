@@ -55,9 +55,9 @@ _PT_STYLE_ACTIVE = PTStyle.from_dict({
 
 # ── Tab-completable slash commands ───────────────────────────────────────────
 _SLASH_COMMANDS = [
-    "/analyze", "/view", "/report", "/dashboard", "/reset",
+    "/analyze", "/report", "/dashboard", "/reset",
     "/status",  "/clear", "/exit", "/help",
-    "/a", "/v", "/r", "/d", "/rt", "/s", "/c", "/q", "/h",
+    "/a", "/r", "/d", "/rt", "/s", "/c", "/q", "/h",
 ]
 
 _COMPLETER = WordCompleter(_SLASH_COMMANDS, sentence=True)
@@ -175,51 +175,9 @@ def run_shell(
             out_path.write_bytes(data)
             active_report_path = out_path
             _ok(console, f"Report saved to: {out_path}")
-            _info(console, "Type /view to open the report in your browser.")
         except Exception as exc:
             _warn(console, f"Auto-report failed: {exc}")
 
-    def cmd_view(arg: str) -> None:
-        """Open the saved report in browser (no args), or show compact engine summary."""
-        if not active_doc:
-            _err(console, "No active document. Run /analyze <path> first.")
-            return
-
-        # /view with no argument — open the saved report in the default browser
-        if not arg:
-            if active_report_path and active_report_path.exists():
-                import webbrowser
-                _info(console, f"Opening report: {active_report_path}")
-                webbrowser.open(active_report_path.as_uri())
-            else:
-                _err(console, "File not found: No saved report found. Run /report <output_path> to generate one first.")
-            return
-
-        # /view <engine> — show a compact score + flags summary
-        valid = {"ela", "metadata", "meta", "seal", "nlp"}
-        engine = arg.lower()
-        if engine not in valid:
-            _err(console, "Usage: /view [ela | metadata | seal | nlp]")
-            return
-        key = "metadata" if engine == "meta" else engine
-        data = getattr(active_doc, key, None)
-        if data is None:
-            _err(console, f"No results for engine: {engine}")
-            return
-
-        score = float(data.get("score", 0)) if isinstance(data, dict) else 0.0
-        flags = data.get("flags", []) if isinstance(data, dict) else []
-
-        from checkmate_cli.theme import score_style
-        console.print(Text(f"\n  {engine.upper()} Pipeline Summary", style=f"bold {HEX_GOLD}"))
-        console.print(Text(f"  Score : {score:.1f}/100", style=str(score_style(score))))
-        if flags:
-            console.print(Text(f"  Flags :", style=f"bold {HEX_SLATE}"))
-            for f in flags:
-                console.print(Text(f"    > {f}", style=HEX_CORAL))
-        else:
-            console.print(Text("  Flags : (no anomalies detected)", style=f"italic {HEX_SLATE}"))
-        console.print()
 
     def cmd_report(arg: str) -> None:
         if is_offline:
@@ -304,9 +262,11 @@ def run_shell(
                 _err(console, f"Dashboard failed: {exc}")
 
     def cmd_reset() -> None:
-        nonlocal chat_history
+        nonlocal chat_history, active_doc, active_report_path
         chat_history = []
-        _ok(console, "Chat memory cleared.")
+        active_doc = None
+        active_report_path = None
+        _ok(console, "Chat memory and document selection reset.")
 
     def cmd_status() -> None:
         print_status_panel(console, None)
@@ -373,8 +333,6 @@ def run_shell(
                 cmd_reset()
             elif cmd in ("/analyze", "/a"):
                 cmd_analyze(arg)
-            elif cmd in ("/view", "/v"):
-                cmd_view(arg)
             elif cmd in ("/report", "/r"):
                 cmd_report(arg)
             elif cmd in ("/dashboard", "/d"):

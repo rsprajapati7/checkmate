@@ -29,10 +29,10 @@ To review consistency checks:
 # Run direct analysis and check the NLP subscore in the diagnostic card
 python -m checkmate_cli analyze doc.pdf
 
-# Open interactive shell to view raw NLP entities
+# Open interactive shell and query Gemma about the document's consistency
 python -m checkmate_cli
 CheckMate >> /analyze doc.pdf
-CheckMate [doc.pdf] >> /view nlp
+CheckMate [doc.pdf] >> does the GSTIN match the client name?
 ```
 
 **Screenshot Space Placeholder:**

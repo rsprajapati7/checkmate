@@ -30,10 +30,10 @@ To review the metadata flags:
 # Analyze document directly
 python -m checkmate_cli analyze doc.pdf
 
-# Run shell REPL to inspect raw metadata JSON
+# Open interactive shell and query Gemma about metadata anomalies
 python -m checkmate_cli
 CheckMate >> /analyze doc.pdf
-CheckMate [doc.pdf] >> /view metadata
+CheckMate [doc.pdf] >> show metadata editing tool flags
 ```
 
 **Screenshot Space Placeholder:**

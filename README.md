@@ -125,9 +125,8 @@ This boots up system diagnostics, checks API health, and opens a `CheckMate >> `
 
 #### Shell Slash Commands:
 - `/analyze <path>` (or `/a`): Load and scan a document.
-- `/view <ela | metadata | seal | nlp>` (or `/v`): Dump raw JSON forensic maps for specific pipelines.
 - `/report <output.html>` (or `/r`): Export the compiled report.
-- `/reset` (or `/rt`): Clear chat memory and reset conversation history.
+- `/reset` (or `/rt`): Clear chat memory and reset document selection.
 - `/status` (or `/s`): Refresh backend server connection.
 - `/clear` (or `/c`): Clear terminal screen.
 - `/exit` (or `/q`): Exit the session.
