@@ -1,158 +1,145 @@
-# CheckMate / Suraksha 2.0 — AI Document Forensic Toolkit
+# CheckMate — AI Document Forensic Toolkit
 
-CheckMate is a professional, multi-layered document verification and forensic analysis suite. It combines deep learning models (YOLOv8), optical character recognition (EasyOCR/Tesseract), statistical image analysis (Error Level Analysis), and Large Language Models (Gemma-4-31b) to detect structural, visual, and semantic forgeries in high-stakes documents (such as bank statements, invoices, academic certificates, and identity cards).
+## Problem
 
----
+In the era of digital documents, detecting sophisticated forgeries—such as manipulated bank statements, spliced KYC documents, or cloned official seals—is incredibly difficult. Traditional underwriters and verifiers rely on manual review, which is slow, error-prone, and easily fooled by modern image editing tools. As financial and identity frauds grow in complexity, existing single-purpose tools (checking only OCR or metadata) fail to catch multi-layered tampering.
 
-## Architecture Overview
+## Solution
 
-The system consists of three main components:
-1. **Forensic Backend Core (FastAPI)**: An API server that hosts the analytical pipelines, runs YOLOv8 model inference for stamp detection, parses XMP schemas, checks logical entities, and interfaces with the LLM reasoning loop.
-2. **Python Command-Line Interface (CheckMate CLI)**: A high-fidelity console tool built with **Typer** and **Rich** (featuring fallback terminal prompts via **prompt_toolkit**). It allows users to run complete forensic checks locally from their terminal.
-3. **Web Application Dashboard (Upcoming)**: A modern, web-based tool is planned to provide a visual interface for uploading documents, interactive heatmap navigation, and managing historical reports.
+CheckMate is a professional, multi-layered document verification and forensic analysis suite built entirely for the command line. It automates forensic analysis using parallel pipelines to detect structural, visual, and semantic forgeries in high-stakes documents. By combining statistical image analysis, object detection, and metadata rule engines, CheckMate fuses the results into a single, calibrated risk score, backed by an LLM that explains the anomalies in plain English.
 
----
+## Why CheckMate is Different
 
-## Forensic Pipelines
+- **Multi-modal forensics in one system**: Fuses 4 independent pipelines (Error Level Analysis, Metadata, Seal Detection, NLP Cross-Doc) into a single unified risk score.
 
-CheckMate's analysis is broken down into modular pipelines. Click on each pipeline to view a detailed explanation of its technical logic and how it works:
+- **LLM-as-investigator**: The LLM doesn't just classify—it receives the full forensic context and reasons about *why* a document is suspicious, allowing you to ask questions about the findings.
 
-- [Document Ingestion](docs/pipelines/document_ingestion.md): normalizes documents, renders pages, and extracts native and OCR text.
-- [Error Level Analysis (ELA) Forgery](docs/pipelines/ela_forgery.md): analyzes compression noise changes to isolate modified pixels.
-- [Metadata Forensics](docs/pipelines/metadata_forensics.md): runs PDF dictionaries against a state machine of date and editing tool rules.
+- **QR-to-OCR cross-verification**: Parses QR payloads and cross-references them against extracted OCR text to catch sophisticated mismatches.
+
+- **Scanned vs. Digital dual-weight fusion**: Uses different scoring profiles depending on whether a document is scanned (ELA weighted higher) or digitally generated (metadata weighted higher).
+
+- **India-specific regulatory knowledge**: Validates PAN, Aadhaar, and GSTIN formatting, and performs UGC university recognition checks.
+
+- **Offline-first & CLI-native**: Designed for air-gapped, high-security environments. Operates entirely locally via a polished, conversational command-line interface.
+
+## Demo
+
+*(Insert Working Demo Screen Recording here)*
+
+## Screenshots
+
+- **CLI Dashboard**:
+<img width="1429" height="802" alt="cli_dashboard" src="https://github.com/user-attachments/assets/10d7587f-2141-4d3b-b826-58de663a14e2" />
+
+- **ELA Dashboard**: *(Insert ELA Dashboard screenshot here)*
+
+- **Seal and Stamp Detection**: *(Insert Seal and Stamp Detection screenshot here)*
+
+## Architecture
+
+CheckMate operates via a 10-step asynchronous pipeline orchestrator:
+`Upload → Ingestion → Parallel Analysis (ELA, Metadata, Seal, NLP) → LLM Classification → Registry Verification → Pattern Detection → Fusion Scoring → AI Investigation → Report`
+
+**Key Forensic Pipelines:**
+
+- [Document Ingestion](docs/pipelines/document_ingestion.md): Normalizes documents, renders pages, and extracts native and OCR text.
+
+- [Error Level Analysis (ELA) Forgery](backend/pipelines/ela_forgery/README.md): Analyzes compression noise changes to isolate modified pixels.
+
+- [Metadata Forensics](docs/pipelines/metadata_forensics.md): Runs PDF dictionaries against a state machine of date and editing tool rules.
+
 - [Seal & Signature Detection](docs/pipelines/seal_detection.md): YOLO-driven stamp extraction and boundary sharpness checks.
-- [NLP Cross-Doc Scrutiny](docs/pipelines/nlp_cross_doc.md): validates Indian ID formatting, balance-sheet math, and QR-to-OCR alignments.
-- [Score Fusion](docs/pipelines/score_fusion.md): combines all pipeline metrics into a unified threat tier (Green, Yellow, Red).
 
----
+- [NLP Cross-Doc Scrutiny](docs/pipelines/nlp_cross_doc.md): Validates formatting, balance-sheet math, and QR-to-OCR alignments.
 
-## Deployment & Production Hosting
+- [Score Fusion](docs/pipelines/score_fusion.md): Combines all metrics into a unified threat tier (Green, Amber, Red).
 
-CheckMate supports offline hosting on cloud environments. If you are deploying the backend core to a remote virtual machine (such as Oracle Cloud Infrastructure) with an offline LLM, see the detailed setup guide:
-
-- [OCI VM Deployment & Offline LLM Setup](docs/pipelines/vm_deployment.md): Guides you through Docker compose, host-based Ollama bindings, and network/firewall configurations.
-
----
-
-## Running CheckMate CLI Locally
-
-If you want to run CheckMate locally, follow the steps below to set up the backend server and configure the CLI tool.
+## Installation
 
 ### Prerequisites
+
 - **Python 3.10+**
-- **CUDA Toolkit** (Optional; required for GPU acceleration of YOLOv8 and EasyOCR)
-- **Tesseract OCR Binary** (Required for PDF character fallback processing)
+- **Tesseract OCR Binary** (Required for fallback OCR processing)
+- **Optional**: CUDA Toolkit (for GPU acceleration)
 
----
+### Environment Setup
 
-### Step 1: Environment Setup
 Clone the repository and set up a Python virtual environment:
-```powershell
+```bash
 # Navigate to project root
 cd checkmate
 
 # Create and activate virtual environment
 python -m venv venv
-.\venv\Scripts\Activate.ps1
+source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 
-# Install core packages
+# Install dependencies
 pip install -r requirements.txt
 ```
 
----
+### Configure Environment
 
-### Step 2: Configure Environment Variables
-Create a `.env` file in the root directory by copying `.env.example` and filling in your values:
-```ini
-DATABASE_URL=sqlite+aiosqlite:///./checkmate.db
-LLM_PROVIDER=ollama
-LLM_MODEL=gemma:2b
-OLLAMA_API_BASE=http://localhost:11434
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+Create a `.env` file by copying the example:
+```bash
+cp .env.example .env
 ```
+Ensure you set your `LLM_PROVIDER` (e.g., `ollama` or `google`) and configure the API URLs accordingly.
 
----
+## Usage
 
-### Step 3: Launch the Backend Server
-Start the FastAPI backend server using Uvicorn:
-```powershell
-.\venv\Scripts\python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+CheckMate is a CLI-first tool featuring a custom-tailored theme built on the **Rich** styling engine to create a modern visual look directly in your terminal.
+
+### 1. Launch the Backend Server
+
+Start the FastAPI backend server (which runs the pipeline orchestrator):
+```bash
+uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 *(Leave this running in the background. The server listens on `http://localhost:8000`)*
 
----
+### 2. CLI Setup
 
-### Step 4: Run the CLI Setup Wizard
-In a new terminal window, activate the virtual environment and initialize the CLI configuration:
-```powershell
-# Set UTF-8 encoding (critical for Windows console boxes)
-$env:PYTHONIOENCODING="utf-8"
-
-# Launch interactive setup
+In a new terminal window, activate your virtual environment and configure the CLI:
+```bash
 python -m checkmate_cli setup
 ```
-Provide the API URL (`http://localhost:8000`) and save your credentials.
 
-**Screenshot Space Placeholder:**
-*(Insert CLI Setup Wizard screenshot here)*
+### 3. Direct Document Analysis
 
----
-
-## CLI Usage Guide
-
-CheckMate CLI supports both direct command execution and a full interactive REPL shell.
-
-### 1. Direct Document Analysis
-Directly scan a document and display the forensic table and AI summary:
-```powershell
+Directly scan a document to view its forensic table and AI summary:
+```bash
 python -m checkmate_cli analyze <path_to_pdf_or_image>
 ```
 
-**Screenshot Space Placeholder:**
-*(Insert CLI Analyze Command Output table here)*
+### 4. Interactive Shell (REPL)
 
----
-
-### 2. Interactive Shell (REPL)
-Launch the interactive shell by running the command with no arguments:
-```powershell
+Launch the interactive shell for conversational forensics:
+```bash
 python -m checkmate_cli
 ```
 This boots up system diagnostics, checks API health, and opens a `CheckMate >> ` session.
 
-**Screenshot Space Placeholder:**
-*(Insert Interactive Shell Startup banner here)*
+**Shell Slash Commands:**
 
-#### Shell Slash Commands:
 - `/analyze <path>` (or `/a`): Load and scan a document.
-- `/report <output.html>` (or `/r`): Export the compiled report.
-- `/reset` (or `/rt`): Clear chat memory and reset document selection.
+
+- `/view <ela | metadata | seal | nlp>` (or `/v`): Dump raw JSON forensic maps for specific pipelines.
+
+- `/report <output.html>` (or `/r`): Export the compiled PDF/HTML report.
+
 - `/status` (or `/s`): Refresh backend server connection.
-- `/clear` (or `/c`): Clear terminal screen.
+
+- `/reset` (or `/rt`): Clear chat memory and reset conversation history.
+
 - `/exit` (or `/q`): Exit the session.
 
-#### Natural Language Routing (Gemma Assistant)
-Any input typed in the shell that does *not* begin with `/` is routed to the Gemma assistant as a question. If a document is active (loaded), Gemma receives its full forensic report context:
-```powershell
+**Natural Language Routing (AI Assistant):**
+
+Any input typed in the shell that does *not* begin with `/` is routed to the LLM assistant as a question. The assistant receives the full forensic context of the loaded document, allowing you to ask questions like:
+```text
 CheckMate [invoice.pdf] >> why is the risk score moderate?
 ```
-Gemma will analyze the metadata and ELA anomalies and respond to your inquiry.
 
----
+### Remote Deployment
 
-## Theme & Styling Guidelines
-CheckMate CLI uses a custom-tailored theme built on the **Rich** styling engine to create a modern visual look:
-- **Primary Gold (`#D4AF37`)**: Used for titles, spinners, and active command prompts.
-- **Coral Warning (`#D1855C`)**: Highlights moderate risk tiers and warnings.
-- **Sage Success (`#8DECB4`)**: Denotes healthy connections and verified-safe assets.
-- **Crimson Alert (`#C0392B`)**: Indicates critical threat detections.
-- **Slate Text (`#4A4A5A`)**: Used for descriptions, logs, and sub-labels.
-
----
-
-## Future Roadmap: Web Application
-While the CLI is built for developers and local forensic review, we are designing a web-based client that will include:
-* drag-and-drop document upload.
-* Interactive ELA heatmap overlay magnifier.
-* Historical audit logs.
-* Visual pipeline timelines.
+For deploying the backend core to a remote virtual machine (such as Oracle Cloud Infrastructure) with an offline LLM, see the [OCI VM Deployment Guide](docs/deployment/vm_deployment.md).
