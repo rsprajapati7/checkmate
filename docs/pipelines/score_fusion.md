@@ -26,7 +26,7 @@ The final score determines the document's risk category:
 | Score Range | Risk Tier | Description | Recommended Action |
 |-------------|-----------|-------------|---------------------|
 | **0.0 – 29.9** | **GREEN (Verified Safe)** | Authentic; minimal or no anomalies detected. | Safe to process automatically. |
-| **30.0 – 59.9** | **YELLOW (Caution)** | Minor anomalies or tool indicators detected (e.g. Canva footprint). | Queue for secondary review. |
+| **30.0 – 59.9** | **AMBER (Caution)** | Minor anomalies or tool indicators detected (e.g. Canva footprint). | Queue for secondary review. |
 | **60.0 – 100.0** | **RED (Critical Alert)** | Splicing, date mismatch, or signature tampering detected. | Reject document or flag for investigator. |
 
 ---
