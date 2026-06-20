@@ -3,7 +3,7 @@
 <img src="docs/assets/Banner.png" alt="CheckMate Banner" width="100%" />
 
 > [!NOTE]
-> **Local-First Priority**: CheckMate is engineered to prioritize local-first processing. All document forensics, OCR extraction, Error Level Analysis (ELA), and LLM-based investigation run fully offline on your local machine or dedicated secure VM. Your sensitive document data never leaves your environment.
+> **Local-First & Offline Priority**: CheckMate is engineered to prioritize local-first processing. All document forensics, OCR extraction, Error Level Analysis (ELA), and LLM-based investigation run fully offline on your local machine or dedicated secure VM. The entire system can be run completely air-gapped without any active internet connection, ensuring your sensitive document data never leaves your secure environment.
 
 ## Problem
 
@@ -67,7 +67,10 @@ CheckMate operates via a 10-step asynchronous pipeline orchestrator:
 
 - **Python 3.10+**
 - **Tesseract OCR Binary** (Required for fallback OCR processing)
-- **Optional**: CUDA Toolkit (for GPU acceleration)
+- **NVIDIA GPU & CUDA Toolkit** (Highly recommended for optimal performance; optional for CPU-only execution)
+
+> [!TIP]
+> While CheckMate is fully compatible with CPU-only environments, we highly recommend utilizing a GPU-accelerated environment (NVIDIA GPU with CUDA support) for professional, high-throughput production workloads. This significantly speeds up deep-learning model execution (such as YOLOv8 seal detection and OCR extraction).
 
 ### Environment Setup
 
