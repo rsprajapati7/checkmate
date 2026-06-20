@@ -119,10 +119,8 @@ _llm_ok_cache = {"status": False, "timestamp": 0.0}
 async def health_check():
     """Extended health check — DB, LLM, model status."""
     import asyncio
-    import os
 
     db_ok = await ping_db()
-    yolo_ok = os.path.exists(settings.YOLO_MODEL_PATH)
 
     now = time.time()
     # Cache health check for 60 seconds to avoid hitting API rate limits
@@ -139,12 +137,11 @@ async def health_check():
     llm_ok = _llm_ok_cache["status"]
 
     return {
-        "status": "ok" if (db_ok and yolo_ok) else "degraded",
+        "status": "ok" if db_ok else "degraded",
         "service": "checkmate",
         "version": "2.0.0",
         "db": "connected" if db_ok else "disconnected",
         "llm": f"{settings.LLM_PROVIDER}/{settings.LLM_MODEL} — {'ok' if llm_ok else 'unreachable'}",
-        "yolo": "loaded" if yolo_ok else "missing (using heuristic fallback)",
         "environment": settings.ENVIRONMENT,
     }
 

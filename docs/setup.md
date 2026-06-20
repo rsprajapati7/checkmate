@@ -83,19 +83,6 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 3.3: Download YOLOv8 Seal Detection Model (Open-Source Weights)
-
-Since CheckMate uses a fine-tuned YOLOv8 model for official seal and signature detection, you need to download the weights file. We provide a utility script to automatically download a pre-trained open-source signature and seal detector from Hugging Face:
-
-```bash
-python download_yolo_model.py
-```
-
-This script downloads `yolov8s.pt` (customized for document signature/seal detection) and saves it to `models/yolov8/seal_detector.pt`. 
-
-> [!NOTE]
-> If you skip this step, CheckMate will automatically fall back to classic OpenCV color-filtering and Hough Circle heuristics. This will function properly but will display a `[WARN] YOLO Model: missing` in the system diagnostics on startup.
-
 ---
 
 ## 4. Configure Environment Variables

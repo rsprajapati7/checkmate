@@ -101,7 +101,6 @@ class HealthResponse:
         self.version     = data.get("version", "")
         self.db          = data.get("db", "")
         self.llm         = data.get("llm", "")
-        self.yolo        = data.get("yolo", "")
         self.environment = data.get("environment", "")
 
 
