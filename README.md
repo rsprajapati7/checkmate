@@ -24,7 +24,7 @@ CheckMate is a professional, multi-layered document verification and forensic an
 
 ## Demo
 
-<video src="docs/assets/Check_Mate.mp4" width="100%" controls></video>
+<video src="https://github.com/rsprajapati7/checkmate/raw/dev/docs/assets/Check_Mate.mp4" width="100%" controls></video>
 
 ## Screenshots
 
