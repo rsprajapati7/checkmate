@@ -24,16 +24,18 @@ CheckMate is a professional, multi-layered document verification and forensic an
 
 ## Demo
 
-*(Insert Working Demo Screen Recording here)*
+<video src="docs/assets/Check_Mate.mp4" width="100%" controls></video>
 
 ## Screenshots
 
 - **CLI Dashboard**:
 <img width="1429" height="802" alt="cli_dashboard" src="https://github.com/user-attachments/assets/10d7587f-2141-4d3b-b826-58de663a14e2" />
 
-- **ELA Dashboard**: *(Insert ELA Dashboard screenshot here)*
+- **ELA Dashboard**:
+<img width="1429" height="802" alt="ela_dashboard" src="docs/assets/Rajat_page_1_ela_dashboard.png" />
 
-- **Seal and Stamp Detection**: *(Insert Seal and Stamp Detection screenshot here)*
+- **Seal and Stamp Detection**:
+<img width="1429" height="802" alt="seal_dashboard" src="docs/assets/Rajat_page_1_seal_dashboard.png" />
 
 ## Architecture
 
