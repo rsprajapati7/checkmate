@@ -23,9 +23,22 @@ Once a seal region is cropped, the engine checks:
 
 ## How to Run Seal Detection
 To analyze seals in a document:
-```powershell
+```bash
 # Run direct analysis and review detected seals summary
 python -m checkmate_cli analyze doc.pdf
+
+# Generate and open the visual seal dashboard
+python -m checkmate_cli
+CheckMate >> /analyze doc.pdf
+CheckMate [doc.pdf] >> /dashboard seal
 ```
-**Screenshot Space Placeholder:**
-*(Insert Seal Detection Bounding Box and Forensic Dashboard screenshot here)*
+
+---
+
+## Model Availability Note
+
+The YOLOv8 seal detection model (`seal_detector.pt`) is **not included** in this repository. Training a custom seal detector requires a labeled dataset of Indian government and institutional seals, which is not publicly available at this time.
+
+**What this means in practice:** When the model file is absent, the pipeline automatically and silently falls back to the heuristic detection chain (color binarization → contour analysis → Hough circles). This fallback produces usable results for common stamp types but with lower precision than a trained YOLO model.
+
+To use a custom-trained model, place the `.pt` file at the path specified in your `.env` (`YOLO_MODEL_PATH`, default: `models/yolov8/seal_detector.pt`).

@@ -33,8 +33,7 @@ The final score determines the document's risk category:
 
 ## How to Check Scores
 The threat index and category tier are prominent on the main diagnostic table:
-```powershell
+```bash
 python -m checkmate_cli analyze doc.pdf
 ```
-**Screenshot Space Placeholder:**
-*(Insert Score Fusion Risk Card screenshot here)*
+

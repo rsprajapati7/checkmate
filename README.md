@@ -1,140 +1,245 @@
-# CheckMate — AI Document Forensic Toolkit
+<div align="center">
 
 <img src="docs/assets/Banner.png" alt="CheckMate Banner" width="100%" />
 
+### AI-Powered Document Forensics From Your Terminal
+
+Detect forged bank statements, cloned seals, and tampered KYC documents using multi-pipeline forensic analysis, powered by computer vision and LLM reasoning.
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+</div>
+
 > [!NOTE]
-> **Local-First & Offline Priority**: CheckMate is engineered to prioritize local-first processing. All document forensics, OCR extraction, Error Level Analysis (ELA), and LLM-based investigation run fully offline on your local machine or dedicated secure VM. The entire system can be run completely air-gapped without any active internet connection, ensuring your sensitive document data never leaves your secure environment.
+> **Offline-First**: All forensics, OCR, ELA, and LLM investigation run fully on your local machine. The entire system operates air-gapped — no document data ever leaves your environment.
 
-## Problem
-
-In the era of digital documents, detecting sophisticated forgeries—such as manipulated bank statements, spliced KYC documents, or cloned official seals—is incredibly difficult. Traditional underwriters and verifiers rely on manual review, which is slow, error-prone, and easily fooled by modern image editing tools. As financial and identity frauds grow in complexity, existing single-purpose tools (checking only OCR or metadata) fail to catch multi-layered tampering.
-
-## Solution
-
-CheckMate is a professional, multi-layered document verification and forensic analysis suite built entirely for the command line. It automates forensic analysis using parallel pipelines to detect structural, visual, and semantic forgeries in high-stakes documents. By combining statistical image analysis, object detection, and metadata rule engines, CheckMate fuses the results into a single, calibrated risk score, backed by an LLM that explains the anomalies in plain English.
-
-## Why CheckMate is Different
-
-- **Multi-modal forensics in one system**: Fuses 4 independent pipelines (Error Level Analysis, Metadata, Seal Detection, NLP Cross-Doc) into a single unified risk score.
-
-- **LLM-as-investigator**: The LLM doesn't just classify—it receives the full forensic context and reasons about *why* a document is suspicious, allowing you to ask questions about the findings.
-
-- **QR-to-OCR cross-verification**: Parses QR payloads and cross-references them against extracted OCR text to catch sophisticated mismatches.
-
-- **Scanned vs. Digital dual-weight fusion**: Uses different scoring profiles depending on whether a document is scanned (ELA weighted higher) or digitally generated (metadata weighted higher).
-
-- **India-specific regulatory knowledge**: Validates PAN, Aadhaar, and GSTIN formatting, and performs UGC university recognition checks.
-
-- **Offline-first & CLI-native**: Designed for air-gapped, high-security environments. Operates entirely locally via a polished, conversational command-line interface.
+---
 
 ## Demo
 
 <video src="https://github.com/user-attachments/assets/c50f7bb2-518a-4f75-af0e-dba2b509240c" width="100%" controls></video>
 
-## Screenshots
+<!-- Presentation link (uncomment and update when available)
+📊 [View the Presentation Deck](link-to-presentation)
+-->
 
-- **CLI Dashboard**:
-<img width="1429" height="802" alt="cli_dashboard" src="https://github.com/user-attachments/assets/10d7587f-2141-4d3b-b826-58de663a14e2" />
+---
 
-- **ELA Dashboard**:
-<img width="1429" height="802" alt="ela_dashboard" src="docs/assets/Rajat_page_1_ela_dashboard.png" />
+## Problem
 
-- **Seal and Stamp Detection**:
-<img width="1429" height="802" alt="seal_dashboard" src="docs/assets/Rajat_page_1_seal_dashboard.png" />
+India's financial system processes millions of documents daily — bank statements, tax returns, KYC records, land registrations. Sophisticated forgeries involving manipulated figures, cloned official seals, and doctored metadata slip past manual review. The ₹22,842 crore ABG Shipyard fraud went undetected for 14 years because forged balance sheets fooled 28 banks.
+
+Existing tools check **one thing** — OCR text *or* metadata *or* pixel analysis. No single tool cross-references all evidence to catch multi-layered tampering.
+
+---
+
+## Solution
+
+CheckMate runs **four forensic pipelines in parallel**, fuses their findings into a calibrated risk score, and uses an LLM to explain exactly *why* a document is suspicious — all from your terminal.
+
+Upload a document → the system ingests, analyzes, cross-references, and scores it in seconds → you get a verdict with full forensic evidence.
+
+---
+
+## Features
+
+### 🔬 Forensic Analysis
+- **Error Level Analysis (ELA)** — Multi-scale JPEG recompression analysis with CLAHE preprocessing and GHOST compression detection to reveal pixel-level tampering
+- **Metadata Forensics** — 8 anomaly rules checking date conflicts, producer mismatches, design software footprints, and XMP/PDF dictionary drift
+- **Seal & Stamp Detection** — YOLOv8 localization with heuristic fallback (color HSV + Hough circles), per-crop ELA scoring, and Laplacian edge sharpness analysis
+- **NLP Cross-Document Scrutiny** — Regex-based entity extraction (PAN, Aadhaar, GSTIN), balance-sheet arithmetic validation, and QR-to-OCR cross-verification
+
+### 🤖 AI Intelligence
+- **LLM-as-Investigator** — Gemma receives full forensic context (scores, flags, ELA heatmaps) and reasons about *why* a document is suspicious
+- **Conversational Forensics** — Ask follow-up questions in natural language; the AI responds with contextual explanations against the active document
+- **Dual-Provider Support** — Google AI Studio (Gemma 4) for cloud, Ollama for fully offline operation
+
+### 🇮🇳 India-Specific
+- **Regulatory Validation** — PAN (`ABCDE1234F`), Aadhaar (12-digit), GSTIN (15-char) format enforcement
+- **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities
+- **Financial Document Guards** — Balance sheet equation checks, GST turnover alignment, ITR date validation
+
+### 💻 CLI Experience
+- **Interactive REPL Shell** — Slash commands, streaming AI responses, animated pipeline progress
+- **Visual Dashboards** — ELA heatmap and seal detection dashboards generated as diagnostic images
+- **Rich-Themed Output** — Custom color palette (Gold/Coral/Sage/Crimson) built on the Rich styling engine
+- **PDF/HTML Reports** — Jinja2-templated forensic reports with embedded heatmaps and scoring breakdowns
+
+---
 
 ## Architecture
 
-CheckMate operates via a 10-step asynchronous pipeline orchestrator:
-`Upload → Ingestion → Parallel Analysis (ELA, Metadata, Seal, NLP) → LLM Classification → Registry Verification → Pattern Detection → Fusion Scoring → AI Investigation → Report`
+```
+ Upload (PDF/Image)
+        │
+        ▼
+ ┌─────────────┐
+ │  Ingestion   │  PyMuPDF (300 DPI) → OCR (Tesseract) → QR Decode (pyzbar)
+ └──────┬───────┘
+        │
+        ▼
+ ┌──────────────────────────────────────────────┐
+ │         PARALLEL PIPELINES (asyncio.gather)   │
+ │                                               │
+ │  ┌────────┐  ┌──────────┐  ┌──────┐  ┌─────┐│
+ │  │  ELA   │  │ Metadata │  │ Seal │  │ NLP ││
+ │  └───┬────┘  └────┬─────┘  └──┬───┘  └──┬──┘│
+ └──────┼────────────┼───────────┼─────────┼───┘
+        └────────────┴───────────┴─────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │   Fusion Engine     │  Weighted scoring (scanned vs digital profiles)
+              │   GREEN / AMBER / RED│
+              └─────────┬───────────┘
+                        │
+                  ┌─────┴──────┐
+                  │ RED only   │
+                  ▼            │
+          ┌──────────────┐     │
+          │ AI Investigator│    │
+          │ (Gemma / Ollama)│   │
+          └──────┬───────┘     │
+                 └─────────────┘
+                        │
+                        ▼
+              ┌──────────────────┐
+              │  Report (PDF/HTML)│
+              └──────────────────┘
+```
 
-**Key Forensic Pipelines:**
+**Pipeline deep-dives:**
+[Document Ingestion](docs/pipelines/document_ingestion.md) · [ELA Forgery](docs/pipelines/ela_forgery.md) · [Metadata Forensics](docs/pipelines/metadata_forensics.md) · [Seal Detection](docs/pipelines/seal_detection.md) · [NLP Cross-Doc](docs/pipelines/nlp_cross_doc.md) · [Score Fusion](docs/pipelines/score_fusion.md)
 
-- [Document Ingestion](docs/pipelines/document_ingestion.md): Normalizes documents, renders pages, and extracts native and OCR text.
+---
 
-- [Error Level Analysis (ELA) Forgery](backend/pipelines/ela_forgery/README.md): Analyzes compression noise changes to isolate modified pixels.
+## Screenshots
 
-- [Metadata Forensics](docs/pipelines/metadata_forensics.md): Runs PDF dictionaries against a state machine of date and editing tool rules.
+**CLI Dashboard:**
 
-- [Seal & Signature Detection](docs/pipelines/seal_detection.md): YOLO-driven stamp extraction and boundary sharpness checks.
+<img width="100%" alt="CLI Dashboard" src="https://github.com/user-attachments/assets/10d7587f-2141-4d3b-b826-58de663a14e2" />
 
-- [NLP Cross-Doc Scrutiny](docs/pipelines/nlp_cross_doc.md): Validates formatting, balance-sheet math, and QR-to-OCR alignments.
+**ELA Dashboard:**
 
-- [Score Fusion](docs/pipelines/score_fusion.md): Combines all metrics into a unified threat tier (Green, Amber, Red).
+<img width="100%" alt="ELA Dashboard" src="docs/assets/Rajat_page_1_ela_dashboard.png" />
+
+**Seal & Stamp Detection:**
+
+<img width="100%" alt="Seal Detection Dashboard" src="docs/assets/Rajat_page_1_seal_dashboard.png" />
+
+---
 
 ## Installation
 
-For detailed instructions on OS-specific dependencies (such as Tesseract OCR), GPU/CUDA configuration, local LLM setup (Ollama), and troubleshooting, refer to the **[CheckMate Installation & Setup Guide](docs/setup.md)**.
+For the full setup guide (OS-specific dependencies, GPU/CUDA configuration, Ollama LLM setup, and troubleshooting), see **[docs/setup.md](docs/setup.md)**.
 
 ### Quick Start
 
-```bash
-# 1. Create and activate a virtual environment
+<details>
+<summary><strong>Windows (PowerShell)</strong></summary>
+
+```powershell
+cd checkmate
 python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
-
-# 2. Install dependencies
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+cp .env.example .env
+# Edit .env — set TESSERACT_CMD to your Tesseract path
+```
+</details>
 
-# 3. Configure your environment variables
+<details>
+<summary><strong>macOS (Homebrew)</strong></summary>
+
+```bash
+cd checkmate
+brew install tesseract
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 cp .env.example .env
 ```
-Ensure you update `.env` with your paths (specifically `TESSERACT_CMD` if on Windows) before launching the application.
+</details>
+
+<details>
+<summary><strong>Linux (Ubuntu/Debian)</strong></summary>
+
+```bash
+cd checkmate
+sudo apt-get install tesseract-ocr libtesseract-dev
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+</details>
+
+---
 
 ## Usage
 
-CheckMate is a CLI-first tool featuring a custom-tailored theme built on the **Rich** styling engine to create a modern visual look directly in your terminal.
-
-### 1. Launch the Backend Server
-
-Start the FastAPI backend server (which runs the pipeline orchestrator):
+### 1. Start the Backend
 ```bash
 uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
-*(Leave this running in the background. The server listens on `http://localhost:8000`)*
 
-### 2. CLI Setup
-
-In a new terminal window, activate your virtual environment and configure the CLI:
+### 2. Configure the CLI (first time only)
 ```bash
 python -m checkmate_cli setup
 ```
 
-### 3. Direct Document Analysis
-
-Directly scan a document to view its forensic table and AI summary:
+### 3. Analyze a Document
 ```bash
-python -m checkmate_cli analyze <path_to_pdf_or_image>
+python -m checkmate_cli analyze invoice.pdf
 ```
 
-### 4. Interactive Shell (REPL)
-
-Launch the interactive shell for conversational forensics:
+### 4. Interactive Shell
 ```bash
 python -m checkmate_cli
 ```
-This boots up system diagnostics, checks API health, and opens a `CheckMate >> ` session.
 
-**Shell Slash Commands:**
-
-- `/analyze <path>` (or `/a`): Load and scan a document.
-
-- `/dashboard <ela | seal> [page_num]` (or `/d`): Generate and open ELA/Seal visual diagnostic dashboard.
-
-- `/report <output.html>` (or `/r`): Export the compiled PDF/HTML report.
-
-- `/status` (or `/s`): Refresh backend server connection.
-
-- `/reset` (or `/rt`): Clear chat memory and reset conversation history.
-
-- `/exit` (or `/q`): Exit the session.
-
-**Natural Language Routing (AI Assistant):**
-
-Any input typed in the shell that does *not* begin with `/` is routed to the LLM assistant as a question. The assistant receives the full forensic context of the loaded document, allowing you to ask questions like:
-```text
-CheckMate [invoice.pdf] >> why is the risk score moderate?
+**Example session:**
 ```
+CheckMate >> /analyze suspicious_bank_statement.pdf
+
+  ┌─────────────────────────────────────────┐
+  │  RISK SCORE: 73/100      Tier: RED 🔴   │
+  ├─────────────────────────────────────────┤
+  │  ELA Forgery:        68/100             │
+  │  Metadata:           81/100             │
+  │  Seal Detection:     42/100             │
+  │  NLP Cross-Doc:      55/100             │
+  └─────────────────────────────────────────┘
+
+CheckMate [suspicious_bank_statement.pdf] >> why is the metadata score so high?
+
+  The metadata score is elevated because of two critical anomalies:
+  1. The PDF's CreationDate (2023-01-15) is later than its ModDate
+     (2022-11-03), which is physically impossible without tampering.
+  2. The Producer field indicates "Scanner" but the document contains
+     Adobe Illustrator layer markers, suggesting post-scan editing.
+```
+
+**Slash commands:**
+
+| Command | Shortcut | Description |
+|---------|----------|-------------|
+| `/analyze <path>` | `/a` | Scan a document |
+| `/dashboard <ela\|seal> [page]` | `/d` | Open visual diagnostic dashboard |
+| `/report <output.html>` | `/r` | Export forensic report |
+| `/status` | `/s` | Check backend connection |
+| `/reset` | `/rt` | Clear chat history |
+| `/exit` | `/q` | Exit |
 
 ### Remote Deployment
 
-For deploying the backend core to a remote virtual machine (such as Oracle Cloud Infrastructure) with an offline LLM, see the [OCI VM Deployment Guide](docs/deployment/vm_deployment.md).
+For deploying on a VM with an offline LLM, see the [OCI VM Deployment Guide](docs/deployment/vm_deployment.md).
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
