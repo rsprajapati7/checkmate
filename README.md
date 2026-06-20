@@ -2,6 +2,9 @@
 
 <img src="docs/assets/Banner.png" alt="CheckMate Banner" width="100%" />
 
+> [!NOTE]
+> **Local-First Priority**: CheckMate is engineered to prioritize local-first processing. All document forensics, OCR extraction, Error Level Analysis (ELA), and LLM-based investigation run fully offline on your local machine or dedicated secure VM. Your sensitive document data never leaves your environment.
+
 ## Problem
 
 In the era of digital documents, detecting sophisticated forgeries—such as manipulated bank statements, spliced KYC documents, or cloned official seals—is incredibly difficult. Traditional underwriters and verifiers rely on manual review, which is slow, error-prone, and easily fooled by modern image editing tools. As financial and identity frauds grow in complexity, existing single-purpose tools (checking only OCR or metadata) fail to catch multi-layered tampering.
