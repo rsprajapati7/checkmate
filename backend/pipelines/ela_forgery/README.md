@@ -366,8 +366,7 @@ Part of the **CheckMate** document verification system.
 
 For issues, questions, or improvements:
 1. Check this README and troubleshooting section
-2. Review the [TUTORIAL.md](TUTORIAL.md) for detailed examples
-3. Open an issue in the repository
+2. Open an issue in the repository
 
 ---
 
