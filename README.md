@@ -63,37 +63,22 @@ CheckMate operates via a 10-step asynchronous pipeline orchestrator:
 
 ## Installation
 
-### Prerequisites
+For detailed instructions on OS-specific dependencies (such as Tesseract OCR), GPU/CUDA configuration, local LLM setup (Ollama), and troubleshooting, refer to the **[CheckMate Installation & Setup Guide](docs/setup.md)**.
 
-- **Python 3.10+**
-- **Tesseract OCR Binary** (Required for fallback OCR processing)
-- **NVIDIA GPU & CUDA Toolkit** (Highly recommended for optimal performance; optional for CPU-only execution)
+### Quick Start
 
-> [!TIP]
-> While CheckMate is fully compatible with CPU-only environments, we highly recommend utilizing a GPU-accelerated environment (NVIDIA GPU with CUDA support) for professional, high-throughput production workloads. This significantly speeds up deep-learning model execution (such as YOLOv8 seal detection and OCR extraction).
-
-### Environment Setup
-
-Clone the repository and set up a Python virtual environment:
 ```bash
-# Navigate to project root
-cd checkmate
-
-# Create and activate virtual environment
+# 1. Create and activate a virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 
-# Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
-```
 
-### Configure Environment
-
-Create a `.env` file by copying the example:
-```bash
+# 3. Configure your environment variables
 cp .env.example .env
 ```
-Ensure you set your `LLM_PROVIDER` (e.g., `ollama` or `google`) and configure the API URLs accordingly.
+Ensure you update `.env` with your paths (specifically `TESSERACT_CMD` if on Windows) before launching the application.
 
 ## Usage
 
