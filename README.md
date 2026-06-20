@@ -46,23 +46,23 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
 
 ## Features
 
-### 🔬 Forensic Analysis
+### Forensic Analysis
 - **Error Level Analysis (ELA)** — Multi-scale JPEG recompression analysis with CLAHE preprocessing and GHOST compression detection to reveal pixel-level tampering
 - **Metadata Forensics** — 8 anomaly rules checking date conflicts, producer mismatches, design software footprints, and XMP/PDF dictionary drift
 - **Seal & Stamp Detection** — YOLOv8 localization with heuristic fallback (color HSV + Hough circles), per-crop ELA scoring, and Laplacian edge sharpness analysis
 - **NLP Cross-Document Scrutiny** — Regex-based entity extraction (PAN, Aadhaar, GSTIN), balance-sheet arithmetic validation, and QR-to-OCR cross-verification
 
-### 🤖 AI Intelligence
+### AI Intelligence
 - **LLM-as-Investigator** — Gemma receives full forensic context (scores, flags, ELA heatmaps) and reasons about *why* a document is suspicious
 - **Conversational Forensics** — Ask follow-up questions in natural language; the AI responds with contextual explanations against the active document
 - **Dual-Provider Support** — Google AI Studio (Gemma 4) for cloud, Ollama for fully offline operation
 
-### 🇮🇳 India-Specific
+### India-Specific
 - **Regulatory Validation** — PAN (`ABCDE1234F`), Aadhaar (12-digit), GSTIN (15-char) format enforcement
 - **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities
 - **Financial Document Guards** — Balance sheet equation checks, GST turnover alignment, ITR date validation
 
-### 💻 CLI Experience
+### CLI Experience
 - **Interactive REPL Shell** — Slash commands, streaming AI responses, animated pipeline progress
 - **Visual Dashboards** — ELA heatmap and seal detection dashboards generated as diagnostic images
 - **Rich-Themed Output** — Custom color palette (Gold/Coral/Sage/Crimson) built on the Rich styling engine
@@ -77,38 +77,38 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
         │
         ▼
  ┌─────────────┐
- │  Ingestion   │  PyMuPDF (300 DPI) → OCR (Tesseract) → QR Decode (pyzbar)
- └──────┬───────┘
+ │  Ingestion  │  PyMuPDF (300 DPI) → OCR (Tesseract) → QR Decode (pyzbar)
+ └──────┬──────┘
         │
         ▼
- ┌──────────────────────────────────────────────┐
+ ┌───────────────────────────────────────────────┐
  │         PARALLEL PIPELINES (asyncio.gather)   │
  │                                               │
- │  ┌────────┐  ┌──────────┐  ┌──────┐  ┌─────┐│
- │  │  ELA   │  │ Metadata │  │ Seal │  │ NLP ││
- │  └───┬────┘  └────┬─────┘  └──┬───┘  └──┬──┘│
- └──────┼────────────┼───────────┼─────────┼───┘
+ │  ┌────────┐  ┌──────────┐  ┌──────┐  ┌─────┐  │
+ │  │  ELA   │  │ Metadata │  │ Seal │  │ NLP │  │
+ │  └───┬────┘  └────┬─────┘  └──┬───┘  └──┬──┘  │
+ └──────┼────────────┼───────────┼─────────┼─────┘
         └────────────┴───────────┴─────────┘
                          │
                          ▼
-              ┌─────────────────────┐
-              │   Fusion Engine     │  Weighted scoring (scanned vs digital profiles)
-              │   GREEN / AMBER / RED│
-              └─────────┬───────────┘
+              ┌────────────────────────┐
+              │      Fusion Engine     │  Weighted scoring (scanned vs digital profiles)
+              │   GREEN / AMBER / RED  │
+              └─────────┬──────────────┘
                         │
                   ┌─────┴──────┐
-                  │ RED only   │
+                  │  RED only  │
                   ▼            │
-          ┌──────────────┐     │
-          │ AI Investigator│    │
-          │ (Gemma / Ollama)│   │
-          └──────┬───────┘     │
+          ┌─────────────────┐  │
+          │ AI Investigator │  │
+          │ (Gemma / Ollama)│  │
+          └──────┬──────────┘  │
                  └─────────────┘
                         │
                         ▼
-              ┌──────────────────┐
-              │  Report (PDF/HTML)│
-              └──────────────────┘
+              ┌────────────────────┐
+              │  Report (PDF/HTML) │
+              └────────────────────┘
 ```
 
 **Pipeline deep-dives:**
@@ -206,12 +206,12 @@ python -m checkmate_cli
 CheckMate >> /analyze suspicious_bank_statement.pdf
 
   ┌─────────────────────────────────────────┐
-  │  RISK SCORE: 73/100      Tier: RED 🔴   │
+  │  RISK SCORE: 73/100      Tier: RED      │
   ├─────────────────────────────────────────┤
-  │  ELA Forgery:        68/100             │
-  │  Metadata:           81/100             │
-  │  Seal Detection:     42/100             │
-  │  NLP Cross-Doc:      55/100             │
+  │  ELA Forgery:            68/100         │
+  │  Metadata:               81/100         │
+  │  Seal Detection:         42/100         │
+  │  NLP Cross-Doc:          55/100         │
   └─────────────────────────────────────────┘
 
 CheckMate [suspicious_bank_statement.pdf] >> why is the metadata score so high?
