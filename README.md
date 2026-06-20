@@ -1,3 +1,5 @@
+
+<img src="docs/assets/Banner.png" alt="CheckMate Banner" width="100%" />
 # CheckMate — AI Document Forensic Toolkit
 
 ## Problem
