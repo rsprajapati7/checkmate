@@ -111,7 +111,7 @@ def run_status_check(console: Console) -> Optional[HealthResponse]:
 
         console.print(Text(f"[ OK ] Backend Server: {health.version}", style=f"bold {HEX_SAGE}"))
         console.print(Text(f"{db_icon}  Database:       {health.db}",  style=db_style))
-        console.print(Text(f"{llm_icon}  Gemma LLM:      {health.llm}", style=llm_style))
+        console.print(Text(f"{llm_icon}  Local LLM:      {health.llm}", style=llm_style))
         console.print(Text("All checks passed — entering shell...\n", style=f"{HEX_SAGE}"))
 
         import time

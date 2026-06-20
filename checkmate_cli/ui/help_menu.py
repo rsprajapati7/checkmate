@@ -44,9 +44,9 @@ def print_help(console: Console) -> None:
     hint.append("\nAny input not starting with ", style=HEX_SLATE)
     hint.append("/", style=f"bold {HEX_GOLD}")
     hint.append(" is routed to ", style=HEX_SLATE)
-    hint.append("Gemma", style=f"bold {HEX_GOLD}")
+    hint.append("Local LLM", style=f"bold {HEX_GOLD}")
     hint.append(" as a natural language prompt.", style=HEX_SLATE)
-    hint.append("\nIf a document is active, Gemma receives its full forensic context.", style=HEX_SLATE)
+    hint.append("\nIf a document is active, the Local LLM receives its full forensic context.", style=HEX_SLATE)
 
     panel_content = Text()
     # We'll compose table + hint inside a group

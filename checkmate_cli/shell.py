@@ -2,7 +2,7 @@
 CheckMate CLI — Interactive REPL shell.
 
 Port of Shell.tsx — command routing, command history, tab-completion,
-natural language → Gemma, offline mode detection.
+natural language → Local LLM, offline mode detection.
 Uses prompt_toolkit for input with history + completion.
 """
 
@@ -278,7 +278,7 @@ def run_shell(
     def cmd_chat(text: str) -> None:
         nonlocal chat_history
         if is_offline:
-            _err(console, "Backend unavailable. Cannot reach Gemma.")
+            _err(console, "Backend unavailable. Cannot reach Local LLM.")
             return
         console.print(Text(f"\nYou: {text}", style="white"))
         chat_history.append({"role": "user", "content": text})
@@ -293,7 +293,7 @@ def run_shell(
             )
             chat_history.append({"role": "assistant", "content": response})
         except Exception as exc:
-            _err(console, f"Gemma error: {exc}")
+            _err(console, f"Local LLM error: {exc}")
             chat_history.pop()  # remove failed user message
 
     # ── REPL loop ─────────────────────────────────────────────────────────────

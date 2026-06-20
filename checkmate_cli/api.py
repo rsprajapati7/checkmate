@@ -239,7 +239,7 @@ def chat_stream_sync(
     context: Any = None,
     history: list[dict] | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Yield text chunks from the Gemma chat stream (sync iterator)."""
+    """Yield text chunks from the Local LLM chat stream (sync iterator)."""
     payload = {
         "message": message,
         "context": context,

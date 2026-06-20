@@ -1,8 +1,8 @@
 """
-CheckMate CLI — Streaming chat panel for Gemma responses.
+CheckMate CLI — Streaming chat panel for Local LLM responses.
 
 Port of ChatPanel.tsx — streaming cursor indicator, Rich Markdown rendering
-of completed responses, bordered panel with Gemma Assistant header.
+of completed responses, bordered panel with Local LLM Assistant header.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from checkmate_cli.theme import HEX_GOLD, HEX_SAGE, HEX_SLATE
 def stream_chat_response(
     console:  Console,
     chunks:   Iterable[str],
-    heading:  str = "Gemma Assistant",
+    heading:  str = "Local LLM Assistant",
 ) -> str:
     """
     Stream tokens from an iterable into a Rich Live panel.
