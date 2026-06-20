@@ -118,7 +118,7 @@ This boots up system diagnostics, checks API health, and opens a `CheckMate >> `
 
 - `/analyze <path>` (or `/a`): Load and scan a document.
 
-- `/view <ela | metadata | seal | nlp>` (or `/v`): Dump raw JSON forensic maps for specific pipelines.
+- `/dashboard <ela | seal> [page_num]` (or `/d`): Generate and open ELA/Seal visual diagnostic dashboard.
 
 - `/report <output.html>` (or `/r`): Export the compiled PDF/HTML report.
 
