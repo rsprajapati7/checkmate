@@ -22,7 +22,7 @@ class MetadataResult:
 
 async def run_metadata_pipeline(ingestion: IngestionResult) -> MetadataResult:
     """Async entry point — runs in thread pool to avoid blocking."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _run_sync, ingestion)
 
 
@@ -73,6 +73,7 @@ def _build_meta_dict(ingestion: IngestionResult) -> dict:
         meta[k.lower()] = v
 
     meta["incremental_save_count"] = ingestion.incremental_save_count
+    meta["is_scanned"] = ingestion.is_scanned
 
     # Parse XMP for date fields if available
     if ingestion.xmp_metadata:

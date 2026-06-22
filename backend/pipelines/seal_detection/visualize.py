@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: str) -> bool:
+def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: str, is_scanned: bool = True) -> bool:
     """
     Generate a visual dashboard for detected seal regions with summary metrics at the top.
     
@@ -33,26 +33,41 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
     panel_h = crop_size + 30  # 30px header at the top of each crop panel
     
     # Pre-calculate metrics for the top header card
-    total_seals = len(seal_regions)
+    from backend.pipelines.seal_detection.scorer import _is_likely_signature, _crop_ela_score
+
+    filtered_regions = []
+    for box in seal_regions:
+        x1, y1, x2, y2 = box
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        if (x2 - x1) < 10 or (y2 - y1) < 10:
+            continue
+        crop = img[y1:y2, x1:x2]
+        if _is_likely_signature(crop, x1, y1, x2, y2, w):
+            continue
+        filtered_regions.append((x1, y1, x2, y2))
+
+    total_seals = len(filtered_regions)
     suspicious_count = 0
     crop_metrics = []
     
-    for idx, box in enumerate(seal_regions):
+    for idx, box in enumerate(filtered_regions):
         x1, y1, x2, y2 = box
         # Clip coordinates to image boundary
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(w, x2), min(h, y2)
         
-        if (x2 - x1) < 10 or (y2 - y1) < 10:
-            continue
-            
         crop = img[y1:y2, x1:x2]
         crop_resized = cv2.resize(crop, (crop_size, crop_size))
         
         # Laplacian Edges
+        # Calculate sharpness on original crop size to match scorer.py
+        gray_orig = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        lap_orig = cv2.Laplacian(gray_orig, cv2.CV_64F)
+        lap_var = lap_orig.var()
+
         gray = cv2.cvtColor(crop_resized, cv2.COLOR_BGR2GRAY)
         lap = cv2.Laplacian(gray, cv2.CV_64F)
-        lap_var = lap.var()
         lap_abs = np.abs(lap)
         lap_max = lap_abs.max()
         if lap_max > 0:
@@ -61,7 +76,7 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             lap_norm = np.zeros_like(gray, dtype=np.uint8)
         lap_color = cv2.applyColorMap(lap_norm, cv2.COLORMAP_JET)
         
-        # Crop ELA Heatmap
+        # Crop ELA Heatmap (Visual only)
         pil_crop = Image.fromarray(cv2.cvtColor(crop_resized, cv2.COLOR_BGR2RGB))
         buf = io.BytesIO()
         pil_crop.save(buf, format="JPEG", quality=85)
@@ -78,8 +93,20 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             ela_norm = np.zeros_like(gray, dtype=np.uint8)
         ela_color = cv2.applyColorMap(ela_norm, cv2.COLORMAP_JET)
         
-        # Check if suspicious: requires high sharpness + ELA combined, or very high ELA alone
-        is_susp = (lap_var > 1200 and ela_mean.mean() > 4.0) or (ela_mean.mean() > 6.0)
+        # Calculate ELA score using the exact scorer logic on original crop size
+        ela_score = _crop_ela_score(image_path, x1, y1, x2, y2)
+        
+        # Check if suspicious using exact rules from scorer.py
+        is_susp = False
+        if is_scanned:
+            if lap_var > 450 and ela_score > 1.7:
+                is_susp = True
+            elif ela_score > 3.5:
+                is_susp = True
+        else:
+            if ela_score > 6.0:
+                is_susp = True
+
         if is_susp:
             suspicious_count += 1
             
@@ -89,7 +116,7 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             "lap_color": lap_color,
             "lap_var": lap_var,
             "ela_color": ela_color,
-            "ela_mean": ela_mean.mean(),
+            "ela_mean": ela_score,
             "is_suspicious": is_susp
         })
         
@@ -148,9 +175,11 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
             cv2.rectangle(panel, (0, 0), (panel_w, panel_h), (229, 231, 235), 1)
             return panel
             
+        is_lap_alert = is_scanned and m["lap_var"] > 450 and m["ela_mean"] > 1.7
+        is_ela_alert = (is_scanned and (m["ela_mean"] > 3.5 or (m["lap_var"] > 450 and m["ela_mean"] > 1.7))) or (not is_scanned and m["ela_mean"] > 6.0)
         p1 = create_panel(m["crop"], f"Seal #{m['idx']+1} Original")
-        p2 = create_panel(m["lap_color"], f"Edges (Var: {m['lap_var']:.0f})", is_alert=(m["lap_var"] > 800))
-        p3 = create_panel(m["ela_color"], f"ELA (Mean: {m['ela_mean']:.1f})", is_alert=(m["ela_mean"] > 4.0))
+        p2 = create_panel(m["lap_color"], f"Edges (Var: {m['lap_var']:.0f})", is_alert=is_lap_alert)
+        p3 = create_panel(m["ela_color"], f"ELA (Score: {m['ela_mean']:.1f})", is_alert=is_ela_alert)
         
         # Combine row side-by-side with 10px spacing
         row = np.zeros((panel_h, header_w, 3), dtype=np.uint8)
@@ -163,8 +192,16 @@ def generate_seal_dashboard(image_path: str, seal_regions: list, output_path: st
         rows.append(row)
         
     if not rows:
-        print("[Seal Visualize] No valid seal crops could be created.")
-        return False
+        # Create a placeholder row indicating no seals were found after filtering
+        row = np.zeros((80, header_w, 3), dtype=np.uint8)
+        row.fill(245)  # Light grey background
+        cv2.putText(
+            row,
+            "No official seals detected. (Handwriting/signatures are skipped from seal analysis.)",
+            (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (80, 80, 80), 1, cv2.LINE_AA
+        )
+        cv2.rectangle(row, (0, 0), (header_w, 80), (229, 231, 235), 1)
+        rows.append(row)
         
     # Combine Header + Rows vertically
     spacing = 15

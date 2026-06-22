@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, Float, Integer, DateTime, Enum as SAEnum,
@@ -43,7 +43,7 @@ class Document(Base):
     file_type = Column(String)           # "PDF" | "PNG" | "JPG"
     is_scanned = Column(Boolean, default=False)
     page_count = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     jobs = relationship("Job", back_populates="document")
 
@@ -57,8 +57,8 @@ class Job(Base):
     stage = Column(String, default="queued")
     progress = Column(Integer, default=0)       # 0-100
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     document = relationship("Document", back_populates="jobs")
     risk_score = relationship("RiskScore", back_populates="job", uselist=False)
@@ -104,7 +104,7 @@ class RiskScore(Base):
     # LLM investigation summary (RED only)
     llm_investigation = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("Job", back_populates="risk_score")
 
@@ -117,7 +117,7 @@ class Report(Base):
     pdf_path = Column(String, nullable=True)
     html_path = Column(String, nullable=True)
     json_path = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("Job", back_populates="report")
 
@@ -133,4 +133,4 @@ class HistoricalEntry(Base):
     name_hash = Column(String, nullable=True)    # SHA256 of normalized name
     seal_hash = Column(String, nullable=True)    # Perceptual hash of seal region
     risk_tier = Column(SAEnum(RiskTier), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

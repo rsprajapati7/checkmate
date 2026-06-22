@@ -1,1 +1,0 @@
-apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: checkmate-config

@@ -74,11 +74,50 @@ def clean_extracted_text(raw_text: str) -> str:
     return final.strip()
 
 
+_EASYOCR_READER = None
+_EASYOCR_TRIED = False
+
+
+def _get_easyocr_reader():
+    global _EASYOCR_READER, _EASYOCR_TRIED
+    if _EASYOCR_TRIED:
+        return _EASYOCR_READER
+    _EASYOCR_TRIED = True
+    try:
+        import easyocr
+        import torch
+        import os
+        force_device = os.environ.get("CHECKMATE_DEVICE", "auto").lower()
+        if force_device == "cpu":
+            use_gpu = False
+        elif force_device in ("gpu", "cuda"):
+            use_gpu = True
+        else:
+            use_gpu = torch.cuda.is_available()
+        # Initializing EasyOCR reader (handles English by default)
+        _EASYOCR_READER = easyocr.Reader(["en"], gpu=use_gpu)
+    except Exception:
+        pass
+    return _EASYOCR_READER
+
+
 def run_tesseract(pil_img: Image.Image, lang: str = "eng") -> str:
     """
-    Full OCR pipeline: preprocess → Tesseract → clean text.
-    Returns cleaned text string.
+    OCR pipeline: attempts GPU-accelerated EasyOCR first if available,
+    falling back to pytesseract on CPU if EasyOCR is not installed/available.
     """
+    reader = _get_easyocr_reader()
+    if reader is not None:
+        try:
+            # Convert image to RGB numpy array for EasyOCR
+            img_np = np.array(pil_img.convert("RGB"))
+            results = reader.readtext(img_np, detail=0)
+            raw = "\n".join(results)
+            return clean_extracted_text(raw)
+        except Exception:
+            pass
+
+    # Fallback to Tesseract
     cleaned_img = preprocess_image_for_ocr(pil_img)
     raw = pytesseract.image_to_string(cleaned_img, lang=lang)
     return clean_extracted_text(raw)

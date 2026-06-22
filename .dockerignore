@@ -1,0 +1,48 @@
+# Exclude files from Docker build context to keep it small (MEDIUM-31 fix)
+# Without this, the context includes .venv (~1GB), large HTMLs, test fixtures, etc.
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.Python
+
+# Virtual environments
+.venv/
+.venv-1/
+venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# Large generated artifacts (not needed at runtime)
+*.db
+*.html
+*.pdf
+*.jpeg
+*.jpg
+*.png
+
+# Source files not needed in container
+tests/
+.vscode/
+.idea/
+docs/
+*.md
+!README.md
+pyproject.toml
+
+# Dev / CI
+.env
+!.env.example
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Temp uploads
+tmp/
+
+# Local model weights (should be pre-bundled via a separate build step)
+# models/   <-- commented out: models ARE needed in the container

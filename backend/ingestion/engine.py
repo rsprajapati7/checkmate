@@ -2,12 +2,12 @@
 Ingestion engine — main entry point for document parsing.
 
 Handles:
-  - PDF → per-page PNG conversion (300 DPI via PyMuPDF)
+  - PDF → per-page JPEG conversion (300 DPI via PyMuPDF)
   - Direct image (PNG/JPG) loading
   - OCR via Tesseract (with Otsu binarization)
   - QR code extraction (pyzbar)
   - File system + PDF metadata extraction
-  - Dual-layer verification for non-scanned PDFs (native text vs OCR)
+  - is_scanned detection via majority-rule across all pages
 
 Returns an IngestionResult dataclass consumed by all downstream pipelines.
 """
@@ -34,11 +34,12 @@ SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 @dataclass
 class PageData:
     page_num: int           # 1-indexed
-    image_path: str         # saved PNG path for ELA + seal detection
-    pil_image: Image.Image  # in-memory PIL image (for QR, OCR)
+    image_path: str         # saved JPEG path for ELA + seal detection
     ocr_text: str           # Tesseract OCR output
     native_text: str        # Embedded PDF text layer (empty for scanned/images)
     qr_codes: List[QRResult] = field(default_factory=list)
+    # NOTE: pil_image removed — it was held in RAM for the entire pipeline duration
+    # (up to 30 MB per page uncompressed). All downstream pipelines use image_path instead.
 
 
 @dataclass
@@ -75,7 +76,7 @@ def ingest_document(file_path: str, document_id: str, output_dir: str) -> Ingest
     document_id : str
         Job/document UUID for naming output files.
     output_dir : str
-        Directory to write per-page PNG renders (used downstream by ELA).
+        Directory to write per-page JPEG renders (used downstream by ELA).
 
     Returns
     -------
@@ -90,7 +91,7 @@ def ingest_document(file_path: str, document_id: str, output_dir: str) -> Ingest
     file_bytes = path.read_bytes()
     os.makedirs(output_dir, exist_ok=True)
 
-    logger.info(f"[Ingestion] Starting: {path.name} ({len(file_bytes)} bytes)")
+    logger.info("[Ingestion] Starting: %s (%d bytes)", path.name, len(file_bytes))
 
     if ext == ".pdf":
         return _ingest_pdf(file_path, file_bytes, document_id, output_dir)
@@ -113,8 +114,13 @@ def _ingest_pdf(
     except Exception as e:
         raise IngestionError(f"PyMuPDF could not open PDF: {e}") from e
 
-    first_page_native = doc[0].get_text().strip() if len(doc) > 0 else ""
-    is_scanned = not bool(first_page_native)
+    # --- is_scanned: majority-rule across ALL pages (HIGH-15 fix) ---
+    # Previously only checked the first page, which caused multi-page PDFs with
+    # a scanned cover to be misclassified as fully scanned.
+    pages_with_native_text = sum(
+        1 for page in doc if page.get_text().strip()
+    )
+    is_scanned = (pages_with_native_text / max(1, len(doc))) < 0.5
 
     pages: List[PageData] = []
     all_qr: List[QRResult] = []
@@ -124,19 +130,22 @@ def _ingest_pdf(
 
         # Render at 300 DPI for high-quality ELA + seal detection
         pix = page.get_pixmap(dpi=300)
+
         img_filename = f"{document_id}_page_{page_num + 1}.jpg"
         img_path = os.path.join(output_dir, img_filename)
 
-        # Save as JPEG (quality 95) so ELA gets a valid double-JPEG compression grid.
-        # Lossless PNG renders produce false-positive ELA ringing on text edges.
-        pil_for_save = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
-        pil_for_save.save(img_path, format="JPEG", quality=95)
+        # --- Efficient pixel decode (MEDIUM-11 fix: previously decoded twice via PNG) ---
+        # Use raw pixmap samples directly — no intermediate PNG encode/decode cycle.
+        pil_img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        pil_img.save(img_path, format="JPEG", quality=95)
 
-        # Load as PIL for OCR and QR from the lossless pixmap bytes (better OCR accuracy)
-        pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
-
-        # OCR
-        ocr_text = run_tesseract(pil_img)
+        # OCR on a 50%-scaled copy — 4× fewer pixels → 3-4× faster on Tesseract/EasyOCR.
+        # ELA and seal detection continue to use the full-resolution JPEG on disk.
+        ocr_img = pil_img.resize(
+            (pix.width // 2, pix.height // 2), Image.LANCZOS
+        )
+        ocr_text = run_tesseract(ocr_img)
+        del ocr_img
 
         # Native text layer
         native_text = page.get_text().strip() if not is_scanned else ""
@@ -148,18 +157,23 @@ def _ingest_pdf(
             qr_codes = extract_qr_codes(pil_img)
             all_qr.extend(qr_codes)
         except Exception as qr_err:
-            logger.warning(f"QR extraction failed on page {page_num + 1}: {qr_err}")
+            logger.warning("QR extraction failed on page %d: %s", page_num + 1, qr_err)
+
+        # PIL image is no longer stored in PageData — drop reference immediately
+        del pil_img
 
         pages.append(PageData(
             page_num=page_num + 1,
             image_path=img_path,
-            pil_image=pil_img,
             ocr_text=ocr_text,
             native_text=native_text,
             qr_codes=qr_codes,
         ))
 
-        logger.info(f"[Ingestion] Page {page_num + 1}/{len(doc)} done | OCR chars: {len(ocr_text)}")
+        logger.info(
+            "[Ingestion] Page %d/%d done | OCR chars: %d",
+            page_num + 1, len(doc), len(ocr_text),
+        )
 
     # PDF metadata
     pdf_meta = dict(doc.metadata) if doc.metadata else {}
@@ -226,6 +240,9 @@ def _ingest_image(
     except Exception:
         pass
 
+    # PIL image no longer needed — drop reference
+    del pil_img
+
     file_type = ext.replace(".", "").upper()
     if file_type == "JPEG":
         file_type = "JPG"
@@ -233,7 +250,6 @@ def _ingest_image(
     page = PageData(
         page_num=1,
         image_path=img_path,
-        pil_image=pil_img,
         ocr_text=ocr_text,
         native_text="",
         qr_codes=qr_codes,

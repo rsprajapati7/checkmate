@@ -5,7 +5,7 @@ Each rule is a function: (metadata_dict) -> (triggered: bool, flag_msg: str, sev
 severity is in range [0, 1] — contributes to the final metadata score.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 AnomalyRule = Callable[[dict], Tuple[bool, str, float]]
@@ -20,7 +20,9 @@ def _parse_date(date_str: str) -> Optional[datetime]:
         date_str = date_str[2:]
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%d%H%M", "%Y%m%d", "%Y-%m-%d", "%Y/%m/%d"):
         try:
-            return datetime.strptime(date_str[:len(fmt)], fmt)
+            parsed = datetime.strptime(date_str[:len(fmt)], fmt)
+            # Make naive datetimes timezone-aware (assume UTC, as PDF dates are UTC)
+            return parsed.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     return None
@@ -62,7 +64,7 @@ def rule_missing_metadata(meta: dict) -> Tuple[bool, str, float]:
 
 def rule_future_date(meta: dict) -> Tuple[bool, str, float]:
     """Any metadata date is in the future."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)  # timezone-aware (MEDIUM-17 fix)
     for key in ("creationDate", "modDate"):
         d = _parse_date(meta.get(key) or "")
         if d and d > now:
@@ -100,6 +102,22 @@ def rule_blank_author_on_official_doc(meta: dict) -> Tuple[bool, str, float]:
     return False, "", 0.0
 
 
+def rule_design_software_origin(meta: dict) -> Tuple[bool, str, float]:
+    """Creator or Producer matches editing/design software (Canva, Photoshop, Figma, etc.)."""
+    if meta.get("is_scanned"):
+        return False, "", 0.0
+
+    creator = (meta.get("creator") or "").lower()
+    producer = (meta.get("producer") or "").lower()
+    full = creator + " " + producer
+    # Design/graphic tools that should never generate official certificates/admit cards/bank statements
+    design_tools = ("canva", "photoshop", "illustrator", "figma", "sketch", "indesign", "gimp", "inkscape", "coreldraw")
+    for tool in design_tools:
+        if tool in full:
+            return True, f"Document generated or edited with graphic design software: '{tool.capitalize()}' (Creator='{meta.get('creator')}', Producer='{meta.get('producer')}')", 0.80
+    return False, "", 0.0
+
+
 ALL_RULES = [
     rule_creation_after_modification,
     rule_producer_scanner_mismatch,
@@ -108,4 +126,5 @@ ALL_RULES = [
     rule_incremental_save_anomaly,
     rule_xmp_pdf_date_mismatch,
     rule_blank_author_on_official_doc,
+    rule_design_software_origin,
 ]

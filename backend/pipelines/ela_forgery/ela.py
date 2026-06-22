@@ -151,6 +151,15 @@ def compute_ela(image_path, quality=85, preprocess=None):
 
     original = load_image(image_path)
     
+    # Pre-compress to JPEG at quality 95 to create a baseline JPEG grid if the input is not JPEG
+    suffix = Path(image_path).suffix.lower()
+    if suffix not in _JPEG_EXTENSIONS:
+        grid_buffer = io.BytesIO()
+        original.save(grid_buffer, format="JPEG", quality=95)
+        grid_buffer.seek(0)
+        original = Image.open(grid_buffer)
+        original.load()
+
     # Apply preprocessing if requested
     if preprocess and preprocess.get('enabled', False):
         clahe_clip = preprocess.get('clahe_clip', 2.0)
@@ -180,7 +189,7 @@ def compute_ela(image_path, quality=85, preprocess=None):
     return error
 
 
-def compute_ela_multiscale(image_path, qualities=(75, 85, 95), preprocess=None):
+def compute_ela_multiscale(image_path, qualities=(75, 90), preprocess=None):
     """Compute ELA at multiple quality levels and fuse the results.
 
     Multi-quality ELA is more robust because:

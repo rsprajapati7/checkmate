@@ -27,6 +27,7 @@ class LLMClient:
         self._google_client = None
 
     def _get_google_client(self):
+        """Lazy-initialize and cache the Google GenAI client (singleton)."""
         if self._google_client is None:
             try:
                 from google import genai
@@ -38,9 +39,23 @@ class LLMClient:
         return self._google_client
 
     async def complete(self, prompt: str, image_b64: Optional[str] = None) -> str:
-        """Send a text (and optionally image) prompt, return the response string."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._complete_sync, prompt, image_b64)
+        """
+        Send a text (and optionally image) prompt, return the response string.
+
+        Enforces a hard timeout (settings.LLM_TIMEOUT_SECONDS) to prevent
+        hung API calls from exhausting the thread pool executor.
+        """
+        loop = asyncio.get_running_loop()
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(None, self._complete_sync, prompt, image_b64),
+                timeout=settings.LLM_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            raise LLMError(
+                f"LLM call timed out after {settings.LLM_TIMEOUT_SECONDS}s "
+                f"(provider={self.provider}, model={self.model})"
+            )
 
     def _complete_sync(self, prompt: str, image_b64: Optional[str]) -> str:
         if self.provider == "google":
@@ -72,11 +87,11 @@ class LLMClient:
                 config=types.GenerateContentConfig(
                     max_output_tokens=settings.LLM_MAX_TOKENS,
                     temperature=settings.LLM_TEMPERATURE,
-                )
+                ),
             )
             return response.text
         except Exception as e:
-            logger.error(f"[LLM] Google API error: {e}")
+            logger.error("[LLM] Google API error: %s", e)
             raise LLMError(f"Google GenAI call failed: {e}") from e
 
     def _ollama_complete(self, prompt: str) -> str:
@@ -89,15 +104,15 @@ class LLMClient:
             "options": {
                 "temperature": settings.LLM_TEMPERATURE,
                 "num_predict": settings.LLM_MAX_TOKENS,
-            }
+            },
         }
         try:
-            with httpx.Client(timeout=120.0) as client:
+            with httpx.Client(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
                 resp = client.post(url, json=payload)
                 resp.raise_for_status()
                 return resp.json().get("response", "")
         except Exception as e:
-            logger.error(f"[LLM] Ollama error: {e}")
+            logger.error("[LLM] Ollama error: %s", e)
             raise LLMError(f"Ollama call failed: {e}") from e
 
     async def complete_json(self, prompt: str, image_b64: Optional[str] = None) -> dict:
@@ -141,7 +156,7 @@ def _extract_json(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    logger.warning(f"[LLM] Could not extract JSON from response: {text[:300]}")
+    logger.warning("[LLM] Could not extract JSON from response: %s", text[:300])
     return {"error": "json_parse_failed", "raw": text[:500]}
 
 

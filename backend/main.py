@@ -15,12 +15,14 @@ Routes:
   GET  /health                        → health check
 """
 
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import upload, analyze, status, report
+from backend.api.dependencies import verify_api_key
+from backend.api.routes import upload, analyze, status, report, cli_routes
 from backend.core.config import settings
 from backend.core.database import init_db, ping_db
 from backend.core.logger import get_logger
@@ -32,26 +34,29 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     """Startup and shutdown hooks."""
     logger.info("=== CheckMate / Suraksha 2.0 Starting ===")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"LLM Provider: {settings.LLM_PROVIDER} / Model: {settings.LLM_MODEL}")
+    logger.info("Environment: %s", settings.ENVIRONMENT)
+    logger.info("LLM Provider: %s / Model: %s", settings.LLM_PROVIDER, settings.LLM_MODEL)
 
     # Initialize database
     try:
         await init_db()
         logger.info("Database initialized.")
     except Exception as e:
-        logger.error(f"DB init failed: {e}")
+        logger.error("DB init failed: %s", e)
 
     # LLM ping (non-blocking warning)
     try:
         from backend.ai_investigator.llm_client import llm_client
         ok = await llm_client.ping()
         if ok:
-            logger.info(f"LLM ({settings.LLM_PROVIDER}/{settings.LLM_MODEL}) — reachable.")
+            logger.info("LLM (%s/%s) — reachable.", settings.LLM_PROVIDER, settings.LLM_MODEL)
         else:
-            logger.warning(f"LLM ({settings.LLM_PROVIDER}/{settings.LLM_MODEL}) — not reachable. Check API key / Ollama.")
+            logger.warning(
+                "LLM (%s/%s) — not reachable. Check API key / Ollama.",
+                settings.LLM_PROVIDER, settings.LLM_MODEL,
+            )
     except Exception as e:
-        logger.warning(f"LLM ping failed: {e}")
+        logger.warning("LLM ping failed: %s", e)
 
     yield
 
@@ -65,31 +70,71 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ---------------------------------------------------------------------------
+# CORS — restrict origins based on environment (CRITICAL-01 fix)
+# ---------------------------------------------------------------------------
+if settings.ENVIRONMENT == "production":
+    _cors_origins = [settings.FRONTEND_URL]
+else:
+    # Development: allow localhost on common ports
+    _cors_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
+
+# ---------------------------------------------------------------------------
+# Process-time header middleware (MEDIUM-23 fix — was defined but never used)
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed = time.perf_counter() - start
+    response.headers["X-Process-Time"] = f"{elapsed:.4f}s"
+    return response
+
+
 # Register routers
-app.include_router(upload.router)
-app.include_router(analyze.router)
-app.include_router(status.router)
-app.include_router(report.router)
+app.include_router(upload.router, dependencies=[Depends(verify_api_key)])
+app.include_router(analyze.router, dependencies=[Depends(verify_api_key)])
+app.include_router(status.router, dependencies=[Depends(verify_api_key)])
+app.include_router(report.router, dependencies=[Depends(verify_api_key)])
+app.include_router(cli_routes.router, dependencies=[Depends(verify_api_key)])
+
+
+_llm_ok_cache = {"status": False, "timestamp": 0.0}
 
 
 @app.get("/health", tags=["system"])
 async def health_check():
     """Extended health check — DB, LLM, model status."""
+    import asyncio
+
     db_ok = await ping_db()
-    llm_ok = False
-    try:
-        from backend.ai_investigator.llm_client import llm_client
-        llm_ok = await llm_client.ping()
-    except Exception:
-        pass
+
+    now = time.time()
+    # Cache health check for 60 seconds to avoid hitting API rate limits
+    if now - _llm_ok_cache["timestamp"] > 60.0:
+        llm_ok = False
+        try:
+            from backend.ai_investigator.llm_client import llm_client
+            llm_ok = await asyncio.wait_for(llm_client.ping(), timeout=5.0)
+        except Exception:
+            pass
+        _llm_ok_cache["status"] = llm_ok
+        _llm_ok_cache["timestamp"] = now
+
+    llm_ok = _llm_ok_cache["status"]
 
     return {
         "status": "ok" if db_ok else "degraded",
@@ -99,3 +144,19 @@ async def health_check():
         "llm": f"{settings.LLM_PROVIDER}/{settings.LLM_MODEL} — {'ok' if llm_ok else 'unreachable'}",
         "environment": settings.ENVIRONMENT,
     }
+
+
+@app.get("/health/live", tags=["system"])
+async def liveness():
+    """K8s liveness probe — returns 200 if process is alive."""
+    return {"alive": True}
+
+
+@app.get("/health/ready", tags=["system"])
+async def readiness():
+    """K8s readiness probe — returns 200 only when DB is connected."""
+    db_ok = await ping_db()
+    if not db_ok:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Database not ready")
+    return {"ready": True}

@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import os
 import sys
@@ -13,7 +14,7 @@ from backend.pipelines.seal_detection.scorer import run_seal_pipeline
 from backend.pipelines.nlp_cross_doc.scorer import run_nlp_pipeline
 from backend.cross_analysis.registry_client import verify_document
 
-async def test_file(file_path: str):
+async def run_pipeline_test(file_path: str):
     print("=" * 80)
     print(f"Testing File: {file_path}")
     print("=" * 80)
@@ -104,11 +105,70 @@ async def test_file(file_path: str):
     else:
         print("No PAN numbers found to check in registry.")
 
+    # 8. Dashboard Generation
+    print("\n--- [Step 7] Generating ELA & Seal Dashboards ---")
+    # Generate ELA Dashboards for each page image
+    for idx, img_path in enumerate(image_paths):
+        ela_out = os.path.join(output_dir, f"{Path(file_path).stem}_page_{idx+1}_ela_dashboard.png")
+        try:
+            # ELA dashboard needs local imports resolved
+            ela_dir = str(Path(__file__).parent.parent.parent / "backend" / "pipelines" / "ela_forgery")
+            if ela_dir not in sys.path:
+                sys.path.insert(0, ela_dir)
+            from dashboard import build_dashboard
+            build_dashboard(img_path, ela_out, use_multiscale=True, is_scanned=ingestion.is_scanned)
+            print(f"ELA Dashboard saved to: {ela_out}")
+        except Exception as e:
+            print(f"Failed to generate ELA Dashboard for {img_path}: {e}")
+
+    # Generate Seal Dashboards for each page image
+    for idx, img_path in enumerate(image_paths):
+        seal_out = os.path.join(output_dir, f"{Path(file_path).stem}_page_{idx+1}_seal_dashboard.png")
+        try:
+            from backend.pipelines.seal_detection.scorer import _detect_seals, _load_yolo_model
+            from backend.pipelines.seal_detection.visualize import generate_seal_dashboard
+            model = _load_yolo_model()
+            regions = _detect_seals(img_path, model, is_scanned=ingestion.is_scanned)
+            if regions:
+                success = generate_seal_dashboard(img_path, regions, seal_out, is_scanned=ingestion.is_scanned)
+                if success:
+                    print(f"Seal Dashboard saved to: {seal_out}")
+                else:
+                    print(f"Seal Dashboard generation reported failure/no seals for {img_path}.")
+            else:
+                print(f"No seals detected on {img_path}, skipping seal dashboard.")
+        except Exception as e:
+            print(f"Failed to generate Seal Dashboard for {img_path}: {e}")
+
 async def main():
-    assets = ["Neeraj-7.pdf", "Roll.jpeg"]
+    parser = argparse.ArgumentParser(description="Run full forensics pipelines on documents.")
+    parser.add_argument("assets", nargs="*", help="File paths to process")
+    parser.add_argument("--device", choices=["cpu", "gpu", "cuda", "auto"], default="auto",
+                        help="Force execution on specific device (default: auto)")
+    parser.add_argument("--cpu", action="store_true", help="Force CPU execution (alias for --device cpu)")
+    parser.add_argument("--gpu", action="store_true", help="Force GPU execution (alias for --device gpu)")
+    args = parser.parse_args()
+
+    # Determine forced device
+    device = args.device
+    if args.cpu:
+        device = "cpu"
+    elif args.gpu:
+        device = "gpu"
+
+    os.environ["CHECKMATE_DEVICE"] = device
+    print(f"Device configuration set to: {device.upper()}")
+
+    # Determine assets
+    assets = args.assets
+    if not assets:
+        assets = ["Neeraj-7.pdf", "Roll.jpeg"]
+        if os.path.exists("Rajat.pdf"):
+            assets.append("Rajat.pdf")
+            
     for asset in assets:
         if os.path.exists(asset):
-            await test_file(asset)
+            await run_pipeline_test(asset)
         else:
             print(f"Asset '{asset}' not found in current directory.")
 

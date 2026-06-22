@@ -16,7 +16,7 @@ Scoring components (100 points total):
 import cv2
 import numpy as np
 
-from ghost import compute_jpeg_ghost, ghost_block_variance
+from backend.pipelines.ela_forgery.ghost import compute_jpeg_ghost, ghost_block_variance
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ def _compute_ela_score(error_map, block_size, doc_mask, text_mask, doc_type):
 
 
 def risk_score(error_map, block_size=32, doc_mask=None, text_mask=None,
-               doc_type='DOCUMENT', image_path=None):
+               doc_type='DOCUMENT', image_path=None, is_scanned=True):
     """Compute a 0-100 risk score using ELA + compression + noise + grid signals.
 
     Uses dual-mode analysis: computes both masked (document-aware) and raw
@@ -437,6 +437,14 @@ def risk_score(error_map, block_size=32, doc_mask=None, text_mask=None,
         grid_pts = _grid_mismatch_score(image_path, doc_mask)
 
     raw_score = ela_score + ghost_pts + noise_pts + grid_pts
+
+    # Attenuate scores for native digital PDFs: ELA has significantly lower SNR
+    # on digital documents due to composited vector elements (logos, QR codes,
+    # digital signatures) that naturally exhibit compression-level mismatches.
+    if not is_scanned:
+        DIGITAL_SCALING_FACTOR = 0.40
+        raw_score = raw_score * DIGITAL_SCALING_FACTOR
+
     return round(min(100.0, max(0.0, raw_score)), 1)
 
 

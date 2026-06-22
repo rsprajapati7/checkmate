@@ -1,1 +1,0 @@
-class HistoricalComparator: pass
