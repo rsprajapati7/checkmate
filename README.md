@@ -62,7 +62,7 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
 ### India-Specific
 
 - **Regulatory Validation** — PAN (`ABCDE1234F`), Aadhaar (12-digit), GSTIN (15-char) format enforcement
-- **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities
+- **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities *(Note: Currently uses a simulated local SQLite mock for demonstration purposes)*
 - **Financial Document Guards** — Balance sheet equation checks, GST turnover alignment, ITR date validation
 
 ### CLI Experience
