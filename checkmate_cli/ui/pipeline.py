@@ -48,9 +48,9 @@ def _build_table(
     spinner_frame:    int,
 ) -> Table:
     """Build the stage display table for one render frame."""
-    table = Table(box=None, show_header=False, padding=(0, 0), expand=False)
-    table.add_column("icon",  no_wrap=True, width=7)
-    table.add_column("name",  no_wrap=True)
+    table = Table(box=None, show_header=False, padding=(0, 1), expand=False)
+    table.add_column("icon",  no_wrap=True, width=8)
+    table.add_column("name",  no_wrap=True, min_width=24)
     table.add_column("desc",  style=HEX_SLATE)
 
     for i, stage in enumerate(STAGES):

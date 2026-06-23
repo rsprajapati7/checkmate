@@ -109,9 +109,9 @@ def run_status_check(console: Console) -> Optional[HealthResponse]:
         db_icon   = "[ OK ]" if health.db  == "connected"  else "[FAIL]"
         llm_icon  = "[ OK ]" if "ok" in health.llm.lower() else "[WARN]"
 
-        console.print(Text(f"[ OK ] Backend Server: {health.version}", style=f"bold {HEX_SAGE}"))
-        console.print(Text(f"{db_icon}  Database:       {health.db}",  style=db_style))
-        console.print(Text(f"{llm_icon}  Local LLM:      {health.llm}", style=llm_style))
+        console.print(Text(f"[ OK ]  Backend Server:       {health.version}", style=f"bold {HEX_SAGE}"))
+        console.print(Text(f"{db_icon}  Database:             {health.db}",  style=db_style))
+        console.print(Text(f"{llm_icon}  Local LLM:            {health.llm}", style=llm_style))
         console.print(Text("All checks passed — entering shell...\n", style=f"{HEX_SAGE}"))
 
         import time
@@ -146,9 +146,9 @@ def print_status_panel(console: Console, health: Optional[HealthResponse]) -> No
         db_style  = f"bold {HEX_SAGE}"  if health.db  == "connected"  else f"bold {HEX_CRIMSON}"
         llm_style = f"bold {HEX_SAGE}"  if "ok" in health.llm.lower() else f"bold {HEX_CORAL}"
 
-        console.print(Text(f"  Backend : {health.version}",  style=f"bold {HEX_SAGE}"))
-        console.print(Text(f"  Database: {health.db}",        style=db_style))
-        console.print(Text(f"  LLM     : {health.llm}",       style=llm_style))
-        console.print(Text(f"  URL     : {API_URL}\n",         style=HEX_SLATE))
+        console.print(Text(f"  Backend:      {health.version}", style=f"bold {HEX_SAGE}"))
+        console.print(Text(f"  Database:     {health.db}",       style=db_style))
+        console.print(Text(f"  LLM:          {health.llm}",      style=llm_style))
+        console.print(Text(f"  URL:          {API_URL}\n",       style=HEX_SLATE))
     else:
         console.print(Text(f"  Backend unreachable at {API_URL}\n", style=f"bold {HEX_CRIMSON}"))

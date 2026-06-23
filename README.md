@@ -32,13 +32,13 @@ Detect forged bank statements, cloned seals, and tampered KYC documents using mu
 
 India's financial system processes millions of documents daily — bank statements, tax returns, KYC records, land registrations. Sophisticated forgeries involving manipulated figures, cloned official seals, and doctored metadata slip past manual review. The ₹22,842 crore ABG Shipyard fraud went undetected for 14 years because forged balance sheets fooled 28 banks.
 
-Existing tools check **one thing** — OCR text *or* metadata *or* pixel analysis. No single tool cross-references all evidence to catch multi-layered tampering.
+Existing tools check **one thing** — OCR text _or_ metadata _or_ pixel analysis. No single tool cross-references all evidence to catch multi-layered tampering.
 
 ---
 
 ## Solution
 
-CheckMate runs **four forensic pipelines in parallel**, fuses their findings into a calibrated risk score, and uses an LLM to explain exactly *why* a document is suspicious — all from your terminal.
+CheckMate runs **four forensic pipelines in parallel**, fuses their findings into a calibrated risk score, and uses an LLM to explain exactly _why_ a document is suspicious — all from your terminal.
 
 Upload a document → the system ingests, analyzes, cross-references, and scores it in seconds → you get a verdict with full forensic evidence.
 
@@ -47,22 +47,26 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
 ## Features
 
 ### Forensic Analysis
+
 - **Error Level Analysis (ELA)** — Multi-scale JPEG recompression analysis with CLAHE preprocessing and GHOST compression detection to reveal pixel-level tampering
 - **Metadata Forensics** — 8 anomaly rules checking date conflicts, producer mismatches, design software footprints, and XMP/PDF dictionary drift
 - **Seal & Stamp Detection** — YOLOv8 localization with heuristic fallback (color HSV + Hough circles), per-crop ELA scoring, and Laplacian edge sharpness analysis
 - **NLP Cross-Document Scrutiny** — Regex-based entity extraction (PAN, Aadhaar, GSTIN), balance-sheet arithmetic validation, and QR-to-OCR cross-verification
 
 ### AI Intelligence
-- **LLM-as-Investigator** — Gemma receives full forensic context (scores, flags, ELA heatmaps) and reasons about *why* a document is suspicious
+
+- **LLM-as-Investigator** — The LLM receives full forensic context (scores, flags, ELA heatmaps) and reasons about _why_ a document is suspicious
 - **Conversational Forensics** — Ask follow-up questions in natural language; the AI responds with contextual explanations against the active document
 - **Dual-Provider Support** — Google AI Studio (Gemma 4) for cloud, Ollama for fully offline operation
 
 ### India-Specific
+
 - **Regulatory Validation** — PAN (`ABCDE1234F`), Aadhaar (12-digit), GSTIN (15-char) format enforcement
-- **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities
+- **UGC University Recognition** — Cross-checks institutions against a registry of recognized universities *(Note: Currently uses a simulated local SQLite mock for demonstration purposes)*
 - **Financial Document Guards** — Balance sheet equation checks, GST turnover alignment, ITR date validation
 
 ### CLI Experience
+
 - **Interactive REPL Shell** — Slash commands, streaming AI responses, animated pipeline progress
 - **Visual Dashboards** — ELA heatmap and seal detection dashboards generated as diagnostic images
 - **Rich-Themed Output** — Custom color palette (Gold/Coral/Sage/Crimson) built on the Rich styling engine
@@ -112,6 +116,7 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
 ```
 
 **Pipeline deep-dives:**
+
 [Document Ingestion](docs/pipelines/document_ingestion.md) · [ELA Forgery](docs/pipelines/ela_forgery.md) · [Metadata Forensics](docs/pipelines/metadata_forensics.md) · [Seal Detection](docs/pipelines/seal_detection.md) · [NLP Cross-Doc](docs/pipelines/nlp_cross_doc.md) · [Score Fusion](docs/pipelines/score_fusion.md)
 
 ---
@@ -136,6 +141,9 @@ Upload a document → the system ingests, analyzes, cross-references, and scores
 
 For the full setup guide (OS-specific dependencies, GPU/CUDA configuration, Ollama LLM setup, and troubleshooting), see **[docs/setup.md](docs/setup.md)**.
 
+> [!TIP]
+> Already have local GGUF models in LM Studio? See the **"Using Existing GGUF Models with Ollama"** section in `docs/setup.md` to reuse your existing model instead of downloading another one with `ollama pull`.
+
 ### Quick Start
 
 <details>
@@ -149,6 +157,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env — set TESSERACT_CMD to your Tesseract path
 ```
+
 </details>
 
 <details>
@@ -162,6 +171,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
+
 </details>
 
 <details>
@@ -175,6 +185,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
+
 </details>
 
 ---
@@ -182,26 +193,31 @@ cp .env.example .env
 ## Usage
 
 ### 1. Start the Backend
+
 ```bash
 uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
 ### 2. Configure the CLI (first time only)
+
 ```bash
 python -m checkmate_cli setup
 ```
 
 ### 3. Analyze a Document
+
 ```bash
 python -m checkmate_cli analyze invoice.pdf
 ```
 
 ### 4. Interactive Shell
+
 ```bash
 python -m checkmate_cli
 ```
 
 **Example session:**
+
 ```
 CheckMate >> /analyze suspicious_bank_statement.pdf
 
@@ -225,14 +241,14 @@ CheckMate [suspicious_bank_statement.pdf] >> why is the metadata score so high?
 
 **Slash commands:**
 
-| Command | Shortcut | Description |
-|---------|----------|-------------|
-| `/analyze <path>` | `/a` | Scan a document |
-| `/dashboard <ela\|seal> [page]` | `/d` | Open visual diagnostic dashboard |
-| `/report <output.html>` | `/r` | Export forensic report |
-| `/status` | `/s` | Check backend connection |
-| `/reset` | `/rt` | Clear chat history |
-| `/exit` | `/q` | Exit |
+| Command                         | Shortcut | Description                      |
+| ------------------------------- | -------- | -------------------------------- |
+| `/analyze <path>`               | `/a`     | Scan a document                  |
+| `/dashboard <ela\|seal> [page]` | `/d`     | Open visual diagnostic dashboard |
+| `/report <output.html>`         | `/r`     | Export forensic report           |
+| `/status`                       | `/s`     | Check backend connection         |
+| `/reset`                        | `/rt`    | Clear chat history               |
+| `/exit`                         | `/q`     | Exit                             |
 
 ### Remote Deployment
 

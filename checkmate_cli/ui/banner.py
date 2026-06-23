@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.padding import Padding
 
-from checkmate_cli.theme import gradient_chars, HEX_GOLD, HEX_SLATE, GOLD, SLATE
+from checkmate_cli.theme import gradient_chars
 
 
 BANNER_LINES = [
@@ -37,12 +37,4 @@ def print_banner(console: Console) -> None:
     console.print()
     console.print(Padding(banner_text, (0, 0, 0, 2)))
 
-    # Subtitle line
-    subtitle = Text()
-    subtitle.append("─" * 4, style=f"{HEX_SLATE}")
-    subtitle.append(" CheckMate / Suraksha 2.0 ", style="bold white")
-    subtitle.append("-" * 2, style=f"{HEX_SLATE}")
-    subtitle.append(" AI Document Forensic Toolkit ", style=f"italic {HEX_GOLD}")
-    subtitle.append("─" * 4, style=f"{HEX_SLATE}")
-
-    console.print(Padding(subtitle, (0, 0, 1, 3)))
+    console.print()
