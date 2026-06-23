@@ -1,6 +1,6 @@
 # CheckMate — Installation & Setup Guide
 
-This guide provides step-by-step instructions to configure and run the CheckMate document forensics toolkit. 
+This guide provides step-by-step instructions to configure and run the CheckMate document forensics toolkit.
 
 > [!NOTE]
 > **Local-First & Offline Priority**: CheckMate is engineered to run fully offline. All document forensics, OCR extraction, Error Level Analysis (ELA), and LLM reasoning run locally on your hardware. No document data is sent to external clouds or third-party APIs unless explicitly configured.
@@ -12,24 +12,28 @@ This guide provides step-by-step instructions to configure and run the CheckMate
 Before installing, ensure your system meets the requirements:
 
 ### Required Dependencies
-* **Python 3.10 or 3.11** (Verify with `python --version`)
-* **Tesseract OCR Engine**: Required for character recognition fallbacks on PDF images and scans.
-* **Ollama (Optional)**: Required for running local LLMs offline.
+
+- **Python 3.10 or 3.11** (Verify with `python --version`)
+- **Tesseract OCR Engine**: Required for character recognition fallbacks on PDF images and scans.
+- **Ollama (Optional)**: Required for running local LLMs offline.
 
 ### OS-Specific Tesseract Installation
 
 #### Windows
+
 1. Download the Tesseract installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki).
 2. Install it to a directory of your choice (e.g., `C:\Program Files\Tesseract-OCR`).
 3. Note the path to `tesseract.exe` (you will need to add this to your `.env` file).
 
 #### Ubuntu / Debian
+
 ```bash
 sudo apt-get update
 sudo apt-get install tesseract-ocr libtesseract-dev
 ```
 
 #### macOS (via Homebrew)
+
 ```bash
 brew install tesseract
 ```
@@ -40,12 +44,11 @@ brew install tesseract
 
 CheckMate utilizes heavy deep learning models (YOLOv8 for seal detection and EasyOCR/PyTorch).
 
-* **CPU Execution**: Fully supported. Good for local testing or light volumes.
-* **GPU Execution (NVIDIA)**: Highly recommended for professional or production environments. Enabling CUDA significantly reduces processing latency for ELA and YOLOv8 pipeline steps.
+- **CPU Execution**: Fully supported. Good for local testing or light volumes.
+- **GPU Execution (NVIDIA)**: Highly recommended for professional or production environments. Enabling CUDA significantly reduces processing latency for ELA and YOLOv8 pipeline steps.
 
-To enable GPU acceleration:
-1. Ensure you have an NVIDIA GPU.
-2. Install the appropriate **CUDA Toolkit** (e.g., v11.8 or v12.1) and matching PyTorch installation.
+> [!GPU acceleration]
+> GPU acceleration is supported on NVIDIA GPUs via CUDA and on Apple Silicon devices via PyTorch MPS (Metal). NVIDIA GPUs provide the highest performance for production workloads, while Apple Silicon also offers excellent acceleration for local development and testing.
 
 ---
 
@@ -93,13 +96,13 @@ pip install -r requirements.txt
    ```
 2. Open the `.env` file in an editor and configure the following parameters:
 
-| Variable | Description | Recommended/Default Value |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | SQLite database path for local audits. | `sqlite+aiosqlite:///./checkmate.db` |
-| `LLM_PROVIDER` | Choose `ollama` for local offline, or `google` for Google AI Studio. | `ollama` |
-| `LLM_MODEL` | The LLM model tag. | `gemma:2b` |
-| `OLLAMA_API_BASE` | Local port URL where Ollama is running. | `http://localhost:11434` |
-| `TESSERACT_CMD` | Full path to the Tesseract executable (critical on Windows). | `C:\Program Files\Tesseract-OCR\tesseract.exe` |
+| Variable          | Description                                                          | Recommended/Default Value                      |
+| :---------------- | :------------------------------------------------------------------- | :--------------------------------------------- |
+| `DATABASE_URL`    | SQLite database path for local audits.                               | `sqlite+aiosqlite:///./checkmate.db`           |
+| `LLM_PROVIDER`    | Choose `ollama` for local offline, or `google` for Google AI Studio. | `ollama`                                       |
+| `LLM_MODEL`       | The LLM model tag.                                                   | `gemma:2b`                                     |
+| `OLLAMA_API_BASE` | Local port URL where Ollama is running.                              | `http://localhost:11434`                       |
+| `TESSERACT_CMD`   | Full path to the Tesseract executable (critical on Windows).         | `C:\Program Files\Tesseract-OCR\tesseract.exe` |
 
 ---
 
@@ -114,21 +117,57 @@ To run the AI investigation and natural language report generation offline:
    ollama pull gemma:2b
    ```
 
----
+## Alternative: Use an Existing GGUF Model from LM Studio
+
+If you already have a GGUF model downloaded via LM Studio, you can import it into Ollama instead of downloading another copy.
+
+### Example (Qwen 3.5 9B)
+
+Create a Modelfile:
+
+```text
+FROM /path/to/Qwen3.5-9B-Q4_K_M.gguf
+```
+
+Register the model:
+
+```bash
+ollama create qwen35-local -f Modelfile
+```
+
+Verify:
+
+```bash
+ollama run qwen35-local
+```
+
+Then update .env:
+
+```python
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen35-local
+```
+
+This allows CheckMate to use an existing GGUF model through Ollama without modifying the source code.
 
 ## 6. Running the Services
 
 CheckMate operates via a FastAPI backend server and a conversational CLI frontend.
 
 ### Step 6.1: Start the Backend Orchestrator
+
 Launch the Uvicorn server to run the analysis pipelines:
+
 ```bash
 uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
-*(Keep this terminal running. The server listens at `http://localhost:8000`)*
+
+_(Keep this terminal running. The server listens at `http://localhost:8000`)_
 
 ### Step 6.2: Setup the CLI Profile
+
 In a new terminal window (with the virtual environment active), run the CLI setup wizard to configure authentication credentials:
+
 ```bash
 python -m checkmate_cli setup
 ```
@@ -144,10 +183,13 @@ python -m checkmate_cli analyze <path_to_pdf_or_image>
 ```
 
 Or start the interactive REPL shell:
+
 ```bash
 python -m checkmate_cli
 ```
+
 On startup, it will run system diagnostics and display:
+
 ```text
 [ OK ] System Status: CheckMate Core Online
 [ OK ] Tesseract OCR Connection: Active
@@ -159,16 +201,19 @@ On startup, it will run system diagnostics and display:
 ## 8. Troubleshooting Common Issues
 
 ### 1. `TesseractNotFoundError`
-* **Cause**: Python cannot locate the Tesseract executable.
-* **Solution**: Ensure the `TESSERACT_CMD` path in your `.env` file points to the actual binary file (e.g. `C:\Program Files\Tesseract-OCR\tesseract.exe` on Windows) and contains no trailing quotes.
+
+- **Cause**: Python cannot locate the Tesseract executable.
+- **Solution**: Ensure the `TESSERACT_CMD` path in your `.env` file points to the actual binary file (e.g. `C:\Program Files\Tesseract-OCR\tesseract.exe` on Windows) and contains no trailing quotes.
 
 ### 2. Ollama connection refused
-* **Cause**: Ollama is not running, or is running on a different port.
-* **Solution**: Launch the Ollama app or run `ollama serve` in a terminal. Verify that `OLLAMA_API_BASE` matches your Ollama port.
+
+- **Cause**: Ollama is not running, or is running on a different port.
+- **Solution**: Launch the Ollama app or run `ollama serve` in a terminal. Verify that `OLLAMA_API_BASE` matches your Ollama port.
 
 ### 3. GPU is not being used
-* **Cause**: PyTorch is defaulting to CPU.
-* **Solution**: Verify CUDA installation in Python:
+
+- **Cause**: PyTorch is defaulting to CPU.
+- **Solution**: Verify CUDA installation in Python:
   ```python
   import torch
   print(torch.cuda.is_available()) # Should return True
